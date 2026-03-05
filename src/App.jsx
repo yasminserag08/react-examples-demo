@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+
+// ─── Tabs / Examples ────────────────────────────────────────────────────────
 
 const TABS = [
   {
@@ -96,6 +98,101 @@ function Counter() {
             className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
           >+</button>
         </div>
+      </div>
+    </div>
+  );
+}`,
+  },
+  {
+    id: "todo",
+    label: "Todo App",
+    code: `const { useReducer, useState } = React;
+
+function todoReducer(state, action) {
+  switch (action.type) {
+    case "ADD":
+      return [...state, { id: Date.now(), text: action.text, done: false }];
+    case "TOGGLE":
+      return state.map(todo =>
+        todo.id === action.id ? { ...todo, done: !todo.done } : todo
+      );
+    case "DELETE":
+      return state.filter(todo => todo.id !== action.id);
+    default:
+      return state;
+  }
+}
+
+function TodoApp() {
+  const [todos, dispatch] = useReducer(todoReducer, [
+    { id: 1, text: "Learn useReducer", done: true },
+    { id: 2, text: "Build a Todo app", done: false },
+    { id: 3, text: "Present to the class", done: false },
+  ]);
+  const [input, setInput] = useState("");
+
+  const handleAdd = () => {
+    if (!input.trim()) return;
+    dispatch({ type: "ADD", text: input.trim() });
+    console.log("Added:", input.trim());
+    setInput("");
+  };
+
+  const done = todos.filter(t => t.done).length;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-6">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-slate-800">My Todos</h1>
+          <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full">
+            {done}/{todos.length} done
+          </span>
+        </div>
+
+        <div className="flex gap-2 mb-4">
+          <input
+            className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            placeholder="Add a new task..."
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleAdd()}
+          />
+          <button
+            onClick={handleAdd}
+            className="px-4 py-2 bg-indigo-500 text-white text-sm rounded-lg hover:bg-indigo-600 transition font-medium"
+          >Add</button>
+        </div>
+
+        <ul className="space-y-2">
+          {todos.map(todo => (
+            <li
+              key={todo.id}
+              className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition group"
+            >
+              <input
+                type="checkbox"
+                checked={todo.done}
+                onChange={() => dispatch({ type: "TOGGLE", id: todo.id })}
+                className="w-4 h-4 accent-indigo-500 cursor-pointer"
+              />
+              <span className={\`flex-1 text-sm \${todo.done ? "line-through text-slate-400" : "text-slate-700"}\`}>
+                {todo.text}
+              </span>
+              <button
+                onClick={() => {
+                  dispatch({ type: "DELETE", id: todo.id });
+                  console.log("Deleted:", todo.text);
+                }}
+                className="text-slate-300 hover:text-red-400 transition text-xs opacity-0 group-hover:opacity-100"
+              >✕</button>
+            </li>
+          ))}
+        </ul>
+
+        {todos.length === 0 && (
+          <p className="text-center text-slate-400 text-sm py-4">All done! 🎉</p>
+        )}
       </div>
     </div>
   );
@@ -323,8 +420,127 @@ const NewsletterForm = memo(function NewsletterForm() {
   },
 ];
 
+// ─── Syntax Highlighter ─────────────────────────────────────────────────────
+// Lightweight regex-based JSX tokenizer — no external deps needed
+
+const KEYWORDS = new Set([
+  "const","let","var","function","return","if","else","switch","case","default",
+  "break","for","while","do","new","typeof","instanceof","import","export",
+  "from","class","extends","super","this","null","undefined","true","false",
+  "async","await","try","catch","finally","throw","of","in","=>",
+]);
+const HOOKS = new Set([
+  "useState","useEffect","useReducer","useMemo","useCallback","useContext",
+  "useRef","useLayoutEffect","useImperativeHandle","useDebugValue","memo",
+  "createContext","useId",
+]);
+
+function tokenize(code) {
+  // Returns array of {type, value} tokens
+  const tokens = [];
+  let i = 0;
+  while (i < code.length) {
+    // Line comment
+    if (code[i] === "/" && code[i+1] === "/") {
+      let j = i;
+      while (j < code.length && code[j] !== "\n") j++;
+      tokens.push({ type: "comment", value: code.slice(i, j) });
+      i = j;
+      continue;
+    }
+    // Block comment
+    if (code[i] === "/" && code[i+1] === "*") {
+      let j = i + 2;
+      while (j < code.length && !(code[j-1] === "*" && code[j] === "/")) j++;
+      tokens.push({ type: "comment", value: code.slice(i, j+1) });
+      i = j + 1;
+      continue;
+    }
+    // Template literal
+    if (code[i] === "`") {
+      let j = i + 1;
+      while (j < code.length && code[j] !== "`") {
+        if (code[j] === "\\") j++;
+        j++;
+      }
+      tokens.push({ type: "string", value: code.slice(i, j+1) });
+      i = j + 1;
+      continue;
+    }
+    // String single/double
+    if (code[i] === '"' || code[i] === "'") {
+      const q = code[i];
+      let j = i + 1;
+      while (j < code.length && code[j] !== q) {
+        if (code[j] === "\\") j++;
+        j++;
+      }
+      tokens.push({ type: "string", value: code.slice(i, j+1) });
+      i = j + 1;
+      continue;
+    }
+    // JSX string attribute value
+    // Number
+    if (/[0-9]/.test(code[i]) && (i === 0 || /\W/.test(code[i-1]))) {
+      let j = i;
+      while (j < code.length && /[0-9.]/.test(code[j])) j++;
+      tokens.push({ type: "number", value: code.slice(i, j) });
+      i = j;
+      continue;
+    }
+    // Identifier / keyword / hook
+    if (/[a-zA-Z_$]/.test(code[i])) {
+      let j = i;
+      while (j < code.length && /[a-zA-Z0-9_$]/.test(code[j])) j++;
+      const word = code.slice(i, j);
+      if (HOOKS.has(word)) tokens.push({ type: "hook", value: word });
+      else if (KEYWORDS.has(word)) tokens.push({ type: "keyword", value: word });
+      else if (/^[A-Z]/.test(word)) tokens.push({ type: "component", value: word });
+      else tokens.push({ type: "ident", value: word });
+      i = j;
+      continue;
+    }
+    // JSX tag bracket
+    if (code[i] === "<" || code[i] === ">") {
+      tokens.push({ type: "tag", value: code[i] });
+      i++;
+      continue;
+    }
+    // Punctuation / operator
+    tokens.push({ type: "plain", value: code[i] });
+    i++;
+  }
+  return tokens;
+}
+
+const TOKEN_COLORS = {
+  keyword:   "#c084fc", // purple
+  hook:      "#38bdf8", // sky blue
+  string:    "#86efac", // green
+  number:    "#fb923c", // orange
+  comment:   "#6b7280", // gray
+  component: "#fde68a", // yellow
+  tag:       "#94a3b8", // slate
+  ident:     "#e2e8f0", // near white
+  plain:     "#cbd5e1", // light slate
+};
+
+function HighlightedCode({ code }) {
+  const tokens = tokenize(code);
+  return (
+    <code style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12.5, lineHeight: "20px" }}>
+      {tokens.map((tok, i) => (
+        <span key={i} style={{ color: TOKEN_COLORS[tok.type] || TOKEN_COLORS.plain }}>
+          {tok.value}
+        </span>
+      ))}
+    </code>
+  );
+}
+
+// ─── iframe srcdoc builder ───────────────────────────────────────────────────
+
 function buildSrcDoc(code) {
-  // Find the first top-level capitalized function as root component
   const match = code.match(/^function\s+([A-Z]\w*)/m);
   const rootComponent = match ? match[1] : null;
 
@@ -333,11 +549,7 @@ function buildSrcDoc(code) {
 <head>
 <meta charset="UTF-8" />
 <script src="https://cdn.tailwindcss.com"></script>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { height: 100vh; }
-  #root { height: 100vh; }
-</style>
+<style>* { box-sizing: border-box; margin: 0; padding: 0; } body { height: 100vh; } #root { height: 100vh; }</style>
 </head>
 <body>
 <div id="root"></div>
@@ -345,9 +557,7 @@ function buildSrcDoc(code) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <script>
-  const _log = console.log.bind(console);
-  const _err = console.error.bind(console);
-  const _warn = console.warn.bind(console);
+  const _log = console.log.bind(console), _err = console.error.bind(console), _warn = console.warn.bind(console);
   console.log = (...a) => { _log(...a); window.parent.postMessage({type:'log',level:'log',msg:a.map(x=>typeof x==='object'?JSON.stringify(x,null,2):String(x)).join(' ')},'*'); };
   console.error = (...a) => { _err(...a); window.parent.postMessage({type:'log',level:'error',msg:a.map(String).join(' ')},'*'); };
   console.warn = (...a) => { _warn(...a); window.parent.postMessage({type:'log',level:'warn',msg:a.map(String).join(' ')},'*'); };
@@ -358,85 +568,96 @@ function buildSrcDoc(code) {
     ${code}
     ${rootComponent
       ? `ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(${rootComponent}));`
-      : `document.getElementById('root').innerHTML = '<div style="color:#888;padding:20px;font-family:monospace">No root component found.</div>';`
+      : `document.getElementById('root').innerHTML='<div style="color:#888;padding:20px;font-family:monospace">No root component found.</div>';`
     }
   } catch(e) {
-    document.getElementById('root').innerHTML = \`<div style="color:#ef4444;padding:20px;font-family:monospace;font-size:13px;white-space:pre-wrap">\${e.message}</div>\`;
+    document.getElementById('root').innerHTML=\`<div style="color:#ef4444;padding:20px;font-family:monospace;font-size:13px;white-space:pre-wrap">\${e.message}</div>\`;
     window.parent.postMessage({type:'log',level:'error',msg:e.message},'*');
   }
 </script>
-</body>
-</html>`;
+</body></html>`;
 }
 
-const COLORS = {
-  bg: "#f5f4f0",
-  panel: "#ffffff",
-  border: "#e8e6e0",
-  text: "#1a1a1a",
-  muted: "#888",
-  tag: "#f0ede6",
-  consoleBg: "#1c1c1c",
-  log: "#d4d4d4",
-  warn: "#fbbf24",
-  error: "#f87171",
-  lineNum: "#bbb",
+// ─── Colors ──────────────────────────────────────────────────────────────────
+
+const C = {
+  bg:         "#0f1117",
+  panel:      "#161b22",
+  panelAlt:   "#1c2128",
+  border:     "#30363d",
+  text:       "#e6edf3",
+  muted:      "#8b949e",
+  accent:     "#58a6ff",
+  tag:        "#21262d",
+  consoleBg:  "#0d1117",
+  log:        "#c9d1d9",
+  warn:       "#e3b341",
+  error:      "#f85149",
+  lineNum:    "#484f58",
+  green:      "#3fb950",
 };
 
+// ─── Main App ────────────────────────────────────────────────────────────────
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState(0);
-  const [codes, setCodes] = useState(TABS.map((t) => t.code));
-  const [logs, setLogs] = useState([]);
+  const [activeTab, setActiveTab]   = useState(0);
+  const [codes, setCodes]           = useState(TABS.map(t => t.code));
+  const [logs, setLogs]             = useState([]);
   const [consoleOpen, setConsoleOpen] = useState(true);
-  const [srcDoc, setSrcDoc] = useState("");
-  const textareaRef = useRef(null);
-  const lineNumRef = useRef(null);
-  const logsEndRef = useRef(null);
+  const [srcDoc, setSrcDoc]         = useState("");
+  const [copied, setCopied]         = useState(false);
+  const [editMode, setEditMode]     = useState(false);
+
+  const textareaRef  = useRef(null);
+  const lineNumRef   = useRef(null);
+  const preScrollRef = useRef(null);
+  const logsEndRef   = useRef(null);
 
   const currentCode = codes[activeTab];
 
+  // Rebuild iframe on code / tab change
   useEffect(() => {
-    const debounce = setTimeout(() => {
-      setSrcDoc(buildSrcDoc(currentCode));
-      setLogs([]);
-    }, 600);
-    return () => clearTimeout(debounce);
+    const t = setTimeout(() => { setSrcDoc(buildSrcDoc(currentCode)); setLogs([]); }, 600);
+    return () => clearTimeout(t);
   }, [currentCode, activeTab]);
 
+
+
+  // Listen for console messages from iframe
   useEffect(() => {
-    const handler = (e) => {
-      if (e.data?.type === "log") {
-        setLogs((prev) => [
-          ...prev.slice(-199),
-          { level: e.data.level, msg: e.data.msg, id: Date.now() + Math.random() },
-        ]);
-      }
+    const h = (e) => {
+      if (e.data?.type === "log")
+        setLogs(p => [...p.slice(-199), { level: e.data.level, msg: e.data.msg, id: Date.now() + Math.random() }]);
     };
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
+    window.addEventListener("message", h);
+    return () => window.removeEventListener("message", h);
   }, []);
 
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
+  useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [logs]);
+
+  // Sync scroll between highlighted pre and textarea
+  const syncScroll = (e) => {
+    if (lineNumRef.current) lineNumRef.current.scrollTop = e.target.scrollTop;
+    if (preScrollRef.current) preScrollRef.current.scrollTop = e.target.scrollTop;
+  };
 
   const handleTabKey = (e) => {
     if (e.key === "Tab") {
       e.preventDefault();
       const el = textareaRef.current;
-      const start = el.selectionStart;
-      const end = el.selectionEnd;
-      const newCode = currentCode.substring(0, start) + "  " + currentCode.substring(end);
-      const newCodes = [...codes];
-      newCodes[activeTab] = newCode;
-      setCodes(newCodes);
-      requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = start + 2; });
+      const s = el.selectionStart, end = el.selectionEnd;
+      const next = currentCode.substring(0, s) + "  " + currentCode.substring(end);
+      const nc = [...codes]; nc[activeTab] = next; setCodes(nc);
+      requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = s + 2; });
     }
   };
 
-  const syncScroll = (e) => {
-    if (lineNumRef.current) lineNumRef.current.scrollTop = e.target.scrollTop;
-  };
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(currentCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
+  }, [currentCode]);
 
   const lineCount = currentCode.split("\n").length;
 
@@ -445,144 +666,179 @@ export default function App() {
       <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
       <style>{`
         * { box-sizing: border-box; }
-        body { margin: 0; background: ${COLORS.bg}; }
-        textarea { outline: none; resize: none; }
-        textarea::selection { background: #6366f133; }
+        body { margin: 0; background: ${C.bg}; }
+        textarea { outline: none; resize: none; caret-color: #58a6ff; }
+        textarea::selection { background: #58a6ff33; }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
         .tab-btn { transition: all 0.15s; }
-        .tab-btn:hover { opacity: 0.75; }
-        .console-line { border-bottom: 1px solid #252525; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
-        .log-entry { animation: fadeIn 0.12s ease; }
+        .tab-btn:hover { background: ${C.tag} !important; color: ${C.text} !important; }
+        .console-row { border-bottom: 1px solid #1c2128; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:none; } }
+        .log-in { animation: fadeIn 0.12s ease; }
+        .icon-btn:hover { background: ${C.tag} !important; }
+        .edit-toggle:hover { opacity: 0.8; }
       `}</style>
 
-      <div style={{
-        height: "100vh", display: "flex", flexDirection: "column",
-        fontFamily: "'Geist Mono', monospace",
-        background: COLORS.bg, color: COLORS.text,
-      }}>
-        {/* Top bar */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "0 20px", height: 50,
-          borderBottom: `1px solid ${COLORS.border}`,
-          background: COLORS.panel, flexShrink: 0,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-            <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 17, fontStyle: "italic", flexShrink: 0 }}>
+      <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Geist Mono',monospace", background:C.bg, color:C.text }}>
+
+        {/* ── Top bar ── */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 20px", height:50, borderBottom:`1px solid ${C.border}`, background:C.panel, flexShrink:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0 }}>
+            <span style={{ fontFamily:"'Instrument Serif',serif", fontSize:17, fontStyle:"italic", color:C.text, flexShrink:0 }}>
               live.editor
             </span>
-            <span style={{ width: 1, height: 16, background: COLORS.border, flexShrink: 0 }} />
-            <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
+            <span style={{ width:1, height:16, background:C.border, flexShrink:0 }} />
+            <div style={{ display:"flex", gap:4, overflowX:"auto", paddingBottom:1 }}>
               {TABS.map((t, i) => (
-                <button key={t.id} className="tab-btn" onClick={() => setActiveTab(i)} style={{
-                  padding: "4px 11px", fontSize: 11,
-                  fontFamily: "'Geist Mono', monospace",
-                  border: `1px solid ${i === activeTab ? COLORS.text : COLORS.border}`,
-                  borderRadius: 6,
-                  background: i === activeTab ? COLORS.text : "transparent",
-                  color: i === activeTab ? "#fff" : COLORS.muted,
-                  cursor: "pointer", fontWeight: i === activeTab ? 600 : 400,
-                  letterSpacing: 0.3, whiteSpace: "nowrap", flexShrink: 0,
-                }}>
-                  {t.label}
-                </button>
+                <button key={t.id} className="tab-btn" onClick={() => { setActiveTab(i); setEditMode(false); }} style={{
+                  padding:"4px 11px", fontSize:11,
+                  fontFamily:"'Geist Mono',monospace",
+                  border:`1px solid ${i === activeTab ? C.accent : C.border}`,
+                  borderRadius:6,
+                  background: i === activeTab ? "#1f3a5f" : "transparent",
+                  color: i === activeTab ? C.accent : C.muted,
+                  cursor:"pointer", fontWeight: i === activeTab ? 600 : 400,
+                  letterSpacing:0.3, whiteSpace:"nowrap", flexShrink:0,
+                }}>{t.label}</button>
               ))}
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <span style={{ fontSize: 10, color: COLORS.muted }}>{lineCount} lines</span>
-            <button onClick={() => setConsoleOpen(o => !o)} style={{
-              padding: "4px 10px", fontSize: 11,
-              border: `1px solid ${COLORS.border}`, borderRadius: 6,
-              background: consoleOpen ? COLORS.tag : "transparent",
-              color: COLORS.muted, cursor: "pointer",
-              fontFamily: "'Geist Mono', monospace",
-            }}>
-              {consoleOpen ? "hide console" : "show console"}
-            </button>
+          <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+            <span style={{ fontSize:10, color:C.muted }}>{lineCount} lines</span>
+            <button onClick={() => setConsoleOpen(o => !o)} className="icon-btn" style={{
+              padding:"4px 10px", fontSize:11,
+              border:`1px solid ${C.border}`, borderRadius:6,
+              background: consoleOpen ? C.tag : "transparent",
+              color: consoleOpen ? C.text : C.muted,
+              cursor:"pointer", fontFamily:"'Geist Mono',monospace",
+            }}>{consoleOpen ? "hide console" : "show console"}</button>
           </div>
         </div>
 
-        {/* Main panels */}
-        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        {/* ── Main ── */}
+        <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
 
-          {/* Code panel */}
-          <div style={{
-            flex: 1, display: "flex", flexDirection: "column",
-            borderRight: `1px solid ${COLORS.border}`, minWidth: 0,
-          }}>
+          {/* ── Code panel ── */}
+          <div style={{ flex:1, display:"flex", flexDirection:"column", borderRight:`1px solid ${C.border}`, minWidth:0 }}>
+
+            {/* Code header */}
             <div style={{
-              padding: "7px 16px", fontSize: 10, color: COLORS.muted,
-              letterSpacing: 1.5, textTransform: "uppercase",
-              borderBottom: `1px solid ${COLORS.border}`, background: COLORS.panel,
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              flexShrink: 0,
+              padding:"7px 12px 7px 16px", fontSize:10, color:C.muted,
+              letterSpacing:1.5, textTransform:"uppercase",
+              borderBottom:`1px solid ${C.border}`, background:C.panel,
+              display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0,
             }}>
-              <span>Code</span>
-              <span style={{ color: "#4ade80", fontSize: 9 }}>● editable</span>
+              <span style={{ color:C.muted }}>Code</span>
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                {/* Edit toggle */}
+                <button className="edit-toggle" onClick={() => setEditMode(m => !m)} style={{
+                  padding:"3px 9px", fontSize:10, borderRadius:5,
+                  border:`1px solid ${editMode ? C.accent : C.border}`,
+                  background: editMode ? "#1f3a5f" : "transparent",
+                  color: editMode ? C.accent : C.muted,
+                  cursor:"pointer", fontFamily:"'Geist Mono',monospace",
+                  display:"flex", alignItems:"center", gap:4,
+                }}>
+                  <span style={{ fontSize:9 }}>{editMode ? "✎" : "✎"}</span>
+                  {editMode ? "editing" : "edit"}
+                </button>
+                {/* Copy button */}
+                <button onClick={handleCopy} className="icon-btn" style={{
+                  padding:"3px 9px", fontSize:10, borderRadius:5,
+                  border:`1px solid ${copied ? C.green : C.border}`,
+                  background: copied ? "#1a3a2a" : "transparent",
+                  color: copied ? C.green : C.muted,
+                  cursor:"pointer", fontFamily:"'Geist Mono',monospace",
+                  display:"flex", alignItems:"center", gap:4, transition:"all 0.2s",
+                }}>
+                  {copied ? "✓ copied" : "copy"}
+                </button>
+              </div>
             </div>
 
-            <div style={{ flex: 1, display: "flex", overflow: "hidden", background: COLORS.panel }}>
+            {/* Editor body */}
+            <div style={{ flex:1, display:"flex", overflow:"hidden", background:C.bg, position:"relative" }}>
+
               {/* Line numbers */}
               <div ref={lineNumRef} style={{
-                padding: "16px 10px 16px 8px", minWidth: 42, textAlign: "right",
-                background: COLORS.panel, color: COLORS.lineNum,
-                fontSize: 12, lineHeight: "20px", userSelect: "none",
-                borderRight: `1px solid ${COLORS.border}`,
-                overflowY: "hidden", flexShrink: 0,
+                padding:"16px 10px 16px 12px", minWidth:46, textAlign:"right",
+                background:C.bg, color:C.lineNum, fontSize:12, lineHeight:"20px",
+                userSelect:"none", borderRight:`1px solid ${C.border}`,
+                overflowY:"hidden", flexShrink:0,
               }}>
                 {currentCode.split("\n").map((_, i) => <div key={i}>{i + 1}</div>)}
               </div>
 
-              {/* Textarea */}
+              {/* Highlighted code layer */}
+              <pre
+                ref={preScrollRef}
+                style={{
+                  position:"absolute", left:46, right:0, top:0, bottom:0,
+                  margin:0, padding:"16px 16px 16px 14px",
+                  fontSize:12.5, lineHeight:"20px",
+                  fontFamily:"'Geist Mono',monospace",
+                  background:"transparent",
+                  whiteSpace:"pre", overflowY:"auto", overflowX:"auto",
+                  pointerEvents:"none",
+                  tabSize:2,
+                }}
+              >
+                <HighlightedCode code={currentCode} />
+              </pre>
+
+              {/* Transparent textarea on top (only active in edit mode) */}
               <textarea
                 ref={textareaRef}
                 value={currentCode}
+                readOnly={!editMode}
                 onChange={(e) => {
-                  const newCodes = [...codes];
-                  newCodes[activeTab] = e.target.value;
-                  setCodes(newCodes);
+                  const nc = [...codes]; nc[activeTab] = e.target.value; setCodes(nc);
                 }}
                 onKeyDown={handleTabKey}
                 onScroll={syncScroll}
                 spellCheck={false}
                 style={{
-                  flex: 1, padding: "16px 16px 16px 12px",
-                  fontSize: 12.5, lineHeight: "20px",
-                  fontFamily: "'Geist Mono', monospace",
-                  background: "transparent", color: COLORS.text,
-                  border: "none", overflowY: "auto",
-                  whiteSpace: "pre", tabSize: 2,
+                  position:"absolute", left:46, right:0, top:0, bottom:0,
+                  padding:"16px 16px 16px 14px",
+                  fontSize:12.5, lineHeight:"20px",
+                  fontFamily:"'Geist Mono',monospace",
+                  background:"transparent",
+                  color: editMode ? "rgba(255,255,255,0.05)" : "transparent",
+                  border:"none",
+                  overflowY:"auto", overflowX:"auto",
+                  whiteSpace:"pre", tabSize:2,
+                  cursor: editMode ? "text" : "default",
+                  caretColor: editMode ? "#58a6ff" : "transparent",
+                  zIndex:2,
+                  resize:"none",
                 }}
               />
             </div>
           </div>
 
-          {/* Right column: Preview + Console */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          {/* ── Right: Preview + Console ── */}
+          <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0 }}>
 
             {/* Preview */}
             <div style={{
               flex: consoleOpen ? "1 1 60%" : "1 1 100%",
-              display: "flex", flexDirection: "column",
-              borderBottom: consoleOpen ? `1px solid ${COLORS.border}` : "none",
-              transition: "flex 0.2s ease", minHeight: 0,
+              display:"flex", flexDirection:"column",
+              borderBottom: consoleOpen ? `1px solid ${C.border}` : "none",
+              minHeight:0, transition:"flex 0.2s",
             }}>
               <div style={{
-                padding: "7px 16px", fontSize: 10, color: COLORS.muted,
-                letterSpacing: 1.5, textTransform: "uppercase",
-                borderBottom: `1px solid ${COLORS.border}`, background: COLORS.panel,
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                flexShrink: 0,
+                padding:"7px 16px", fontSize:10, color:C.muted,
+                letterSpacing:1.5, textTransform:"uppercase",
+                borderBottom:`1px solid ${C.border}`, background:C.panel,
+                display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0,
               }}>
                 <span>Preview</span>
-                <div style={{ display: "flex", gap: 4 }}>
-                  {["#f87171","#fbbf24","#4ade80"].map(c => (
-                    <div key={c} style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />
+                <div style={{ display:"flex", gap:4 }}>
+                  {["#f85149","#e3b341","#3fb950"].map(c => (
+                    <div key={c} style={{ width:8, height:8, borderRadius:"50%", background:c }} />
                   ))}
                 </div>
               </div>
@@ -590,57 +846,49 @@ export default function App() {
                 key={activeTab}
                 srcDoc={srcDoc}
                 sandbox="allow-scripts allow-same-origin"
-                style={{ flex: 1, border: "none", background: "#fff" }}
+                style={{ flex:1, border:"none", background:"#fff" }}
                 title="preview"
               />
             </div>
 
             {/* Console */}
             {consoleOpen && (
-              <div style={{
-                flex: "0 0 36%", display: "flex", flexDirection: "column",
-                background: COLORS.consoleBg, minHeight: 0,
-              }}>
+              <div style={{ flex:"0 0 36%", display:"flex", flexDirection:"column", background:C.consoleBg, minHeight:0 }}>
                 <div style={{
-                  padding: "6px 16px", fontSize: 10, letterSpacing: 1.5,
-                  textTransform: "uppercase", borderBottom: "1px solid #2a2a2a",
-                  color: "#555", display: "flex", alignItems: "center",
-                  justifyContent: "space-between", flexShrink: 0,
+                  padding:"6px 16px", fontSize:10, letterSpacing:1.5, textTransform:"uppercase",
+                  borderBottom:`1px solid ${C.border}`, color:C.muted,
+                  display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0,
                 }}>
                   <span>Console</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                     {logs.length > 0 && (
-                      <span style={{
-                        background: "#333", color: "#777", borderRadius: 3,
-                        padding: "1px 6px", fontSize: 9,
-                      }}>{logs.length}</span>
+                      <span style={{ background:C.tag, color:C.muted, borderRadius:3, padding:"1px 6px", fontSize:9 }}>
+                        {logs.length}
+                      </span>
                     )}
                     <button onClick={() => setLogs([])} style={{
-                      background: "none", border: "none", color: "#555",
-                      cursor: "pointer", fontSize: 10,
-                      fontFamily: "'Geist Mono', monospace", padding: 0,
+                      background:"none", border:"none", color:C.muted,
+                      cursor:"pointer", fontSize:10, fontFamily:"'Geist Mono',monospace", padding:0,
                     }}>clear</button>
                   </div>
                 </div>
-
-                <div style={{ flex: 1, overflowY: "auto", padding: "6px 0" }}>
+                <div style={{ flex:1, overflowY:"auto", padding:"6px 0" }}>
                   {logs.length === 0 && (
-                    <div style={{ padding: "8px 16px", color: "#444", fontSize: 12 }}>
-                      No output yet. Try adding{" "}
-                      <span style={{ color: "#67e8f9" }}>console.log()</span> to your code.
+                    <div style={{ padding:"8px 16px", color:"#484f58", fontSize:12 }}>
+                      No output yet — try <span style={{ color:"#38bdf8" }}>console.log()</span>
                     </div>
                   )}
-                  {logs.map((log) => (
-                    <div key={log.id} className="log-entry console-line" style={{
-                      padding: "5px 16px", fontSize: 12,
-                      fontFamily: "'Geist Mono', monospace", lineHeight: "18px",
-                      color: log.level === "error" ? COLORS.error : log.level === "warn" ? COLORS.warn : COLORS.log,
-                      display: "flex", alignItems: "flex-start", gap: 8,
+                  {logs.map(log => (
+                    <div key={log.id} className="log-in console-row" style={{
+                      padding:"5px 16px", fontSize:12,
+                      fontFamily:"'Geist Mono',monospace", lineHeight:"18px",
+                      color: log.level === "error" ? C.error : log.level === "warn" ? C.warn : C.log,
+                      display:"flex", alignItems:"flex-start", gap:8,
                     }}>
-                      <span style={{ color: "#555", userSelect: "none", flexShrink: 0, fontSize: 10, marginTop: 1 }}>
+                      <span style={{ color:"#484f58", userSelect:"none", flexShrink:0, fontSize:10, marginTop:1 }}>
                         {log.level === "error" ? "✕" : log.level === "warn" ? "△" : "›"}
                       </span>
-                      <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{log.msg}</span>
+                      <span style={{ whiteSpace:"pre-wrap", wordBreak:"break-word" }}>{log.msg}</span>
                     </div>
                   ))}
                   <div ref={logsEndRef} />
