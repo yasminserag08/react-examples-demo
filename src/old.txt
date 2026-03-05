@@ -1,0 +1,582 @@
+import { useState, useEffect, useRef} from "react";
+
+const INITIAL_CODE = `// Edit me — preview updates live!
+function Counter() {
+  const [count, setCount] = React.useState(0);
+
+  return (
+    <div style={{
+      fontFamily: "sans-serif",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      height: "100%",
+      gap: 20,
+    }}>
+      <h2 style={{ margin: 0, fontSize: 48, color: "#111" }}>{count}</h2>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button
+          onClick={() => setCount(c => c - 1)}
+          style={{
+            padding: "8px 20px", fontSize: 20,
+            border: "2px solid #111", borderRadius: 8,
+            background: "white", cursor: "pointer"
+          }}
+        >−</button>
+        <button
+          onClick={() => setCount(c => c + 1)}
+          style={{
+            padding: "8px 20px", fontSize: 20,
+            border: "2px solid #111", borderRadius: 8,
+            background: "#111", color: "white", cursor: "pointer"
+          }}
+        >+</button>
+      </div>
+      <p style={{ color: "#888", margin: 0 }}>
+        {count === 0 ? "Start counting!" : count > 0 ? "Going up 🚀" : "Going down 📉"}
+      </p>
+    </div>
+  );
+}
+`;
+
+const TABS = [
+  { id: "counter", label: "Counter", code: INITIAL_CODE },
+  {
+    id: "timer",
+    label: "Timer",
+    code: `function Timer() {
+  const [seconds, setSeconds] = React.useState(0);
+  const [running, setRunning] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setSeconds(s => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [running]);
+
+  const fmt = s => \`\${String(Math.floor(s/60)).padStart(2,"0")}:\${String(s%60).padStart(2,"0")}\`;
+
+  return (
+    <div style={{
+      fontFamily: "monospace",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      height: "100%",
+      gap: 24,
+      background: "#0a0a0a",
+      color: "#f0f0f0",
+    }}>
+      <div style={{ fontSize: 64, letterSpacing: 4, color: running ? "#4ade80" : "#f0f0f0" }}>
+        {fmt(seconds)}
+      </div>
+      <div style={{ display: "flex", gap: 12 }}>
+        <button
+          onClick={() => setRunning(r => !r)}
+          style={{
+            padding: "10px 28px", fontSize: 14, letterSpacing: 1,
+            border: "1px solid #444", borderRadius: 6,
+            background: running ? "#ef4444" : "#4ade80",
+            color: "#0a0a0a", cursor: "pointer", fontWeight: 700,
+          }}
+        >{running ? "PAUSE" : "START"}</button>
+        <button
+          onClick={() => { setRunning(false); setSeconds(0); }}
+          style={{
+            padding: "10px 28px", fontSize: 14, letterSpacing: 1,
+            border: "1px solid #444", borderRadius: 6,
+            background: "transparent", color: "#888", cursor: "pointer",
+          }}
+        >RESET</button>
+      </div>
+    </div>
+  );
+}`,
+  },
+  {
+    id: "fetch",
+    label: "Fetch API",
+    code: `function UserCard() {
+  const [user, setUser] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+
+  const fetchUser = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("https://randomuser.me/api/");
+      const data = await res.json();
+      const u = data.results[0];
+      setUser({
+        name: u.name.first + " " + u.name.last,
+        email: u.email,
+        city: u.location.city,
+        avatar: u.picture.large,
+      });
+      console.log("Fetched user:", u.name.first);
+    } catch(e) {
+      console.error("Fetch failed:", e.message);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{
+      fontFamily: "sans-serif",
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      height: "100%", gap: 16, padding: 24,
+    }}>
+      {user ? (
+        <div style={{
+          border: "1px solid #e5e7eb", borderRadius: 16,
+          padding: 24, textAlign: "center",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.08)", width: 220,
+        }}>
+          <img src={user.avatar} style={{ borderRadius: "50%", width: 80, height: 80 }} />
+          <div style={{ fontWeight: 700, marginTop: 12 }}>{user.name}</div>
+          <div style={{ color: "#6b7280", fontSize: 13 }}>{user.email}</div>
+          <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 4 }}>📍 {user.city}</div>
+        </div>
+      ) : (
+        <p style={{ color: "#9ca3af" }}>No user loaded yet</p>
+      )}
+      <button
+        onClick={fetchUser}
+        disabled={loading}
+        style={{
+          padding: "10px 24px", borderRadius: 8,
+          background: "#6366f1", color: "white",
+          border: "none", cursor: "pointer",
+          fontSize: 14, fontWeight: 600,
+          opacity: loading ? 0.6 : 1,
+        }}
+      >{loading ? "Loading..." : "Fetch Random User"}</button>
+    </div>
+  );
+}`,
+  },
+];
+
+function buildSrcDoc(code) {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { height: 100vh; overflow: hidden; }
+  #root { height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script>
+  // Capture console logs
+  const _log = console.log.bind(console);
+  const _err = console.error.bind(console);
+  const _warn = console.warn.bind(console);
+  console.log = (...args) => { _log(...args); window.parent.postMessage({type:'log', level:'log', msg: args.map(String).join(' ')}, '*'); };
+  console.error = (...args) => { _err(...args); window.parent.postMessage({type:'log', level:'error', msg: args.map(String).join(' ')}, '*'); };
+  console.warn = (...args) => { _warn(...args); window.parent.postMessage({type:'log', level:'warn', msg: args.map(String).join(' ')}, '*'); };
+  window.addEventListener('error', e => {
+    window.parent.postMessage({type:'log', level:'error', msg: e.message}, '*');
+  });
+</script>
+<script type="text/babel">
+  try {
+    ${code}
+    const ComponentName = Object.keys(window).find(k => {
+      try { return typeof window[k] === 'function' && /^[A-Z]/.test(k) && k !== 'React' && k !== 'ReactDOM' && k !== 'Babel'; } catch(e) { return false; }
+    });
+    // Try to find the last defined component
+    const transpiled = Babel.transform(\`${code.replace(/`/g, "\\`")}\`, { presets: ['react'] }).code;
+    eval(transpiled);
+    // Find last capitalized function
+    const matches = \`${code.replace(/`/g, "\\`")}\`.match(/^function ([A-Z]\\w*)/gm);
+    if (matches) {
+      const last = matches[matches.length - 1].replace('function ', '');
+      const Comp = eval(last);
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Comp));
+    }
+  } catch(e) {
+    document.getElementById('root').innerHTML = \`<div style="color:#ef4444;padding:20px;font-family:monospace;font-size:13px;white-space:pre-wrap">\${e.message}</div>\`;
+    window.parent.postMessage({type:'log', level:'error', msg: e.message}, '*');
+  }
+</script>
+</body>
+</html>`;
+}
+
+const COLORS = {
+  bg: "#f5f4f0",
+  panel: "#ffffff",
+  border: "#e8e6e0",
+  text: "#1a1a1a",
+  muted: "#888",
+  accent: "#1a1a1a",
+  tag: "#f0ede6",
+  consoleBg: "#1c1c1c",
+  log: "#d4d4d4",
+  warn: "#fbbf24",
+  error: "#f87171",
+  lineNum: "#555",
+  keyword: "#c084fc",
+  string: "#86efac",
+  comment: "#6b7280",
+  fn: "#67e8f9",
+  num: "#fb923c",
+};
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState(0);
+  const [codes, setCodes] = useState(TABS.map((t) => t.code));
+  const [logs, setLogs] = useState([]);
+  const [consoleOpen, setConsoleOpen] = useState(true);
+  const [srcDoc, setSrcDoc] = useState("");
+  const textareaRef = useRef(null);
+  const logsEndRef = useRef(null);
+
+  const currentCode = codes[activeTab];
+
+  useEffect(() => {
+    const debounce = setTimeout(() => {
+      setSrcDoc(buildSrcDoc(currentCode));
+      setLogs([]);
+    }, 600);
+    return () => clearTimeout(debounce);
+  }, [currentCode]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === "log") {
+        setLogs((prev) => [
+          ...prev.slice(-99),
+          { level: e.data.level, msg: e.data.msg, id: Date.now() + Math.random() },
+        ]);
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [logs]);
+
+  const handleTabKey = (e) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const el = textareaRef.current;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const newCode = currentCode.substring(0, start) + "  " + currentCode.substring(end);
+      const newCodes = [...codes];
+      newCodes[activeTab] = newCode;
+      setCodes(newCodes);
+      requestAnimationFrame(() => {
+        el.selectionStart = el.selectionEnd = start + 2;
+      });
+    }
+  };
+
+  const lineCount = currentCode.split("\n").length;
+
+  return (
+    <>
+      <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+      <style>{`
+        * { box-sizing: border-box; }
+        body { margin: 0; background: ${COLORS.bg}; }
+        textarea { outline: none; resize: none; }
+        textarea::selection { background: #6366f133; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+        .tab-btn { transition: all 0.15s; }
+        .tab-btn:hover { background: ${COLORS.tag} !important; }
+        .run-btn:hover { opacity: 0.85 !important; }
+        .console-line { border-bottom: 1px solid #2a2a2a; }
+        .icon-btn:hover { background: #f0ede6 !important; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+        .log-entry { animation: fadeIn 0.15s ease; }
+      `}</style>
+
+      <div style={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: "'Geist Mono', monospace",
+        background: COLORS.bg,
+        color: COLORS.text,
+      }}>
+        {/* Top bar */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 24px",
+          height: 52,
+          borderBottom: `1px solid ${COLORS.border}`,
+          background: COLORS.panel,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 18, fontStyle: "italic", color: COLORS.text }}>
+              live.editor
+            </span>
+            <span style={{ width: 1, height: 16, background: COLORS.border }} />
+            <div style={{ display: "flex", gap: 4 }}>
+              {TABS.map((t, i) => (
+                <button
+                  key={t.id}
+                  className="tab-btn"
+                  onClick={() => setActiveTab(i)}
+                  style={{
+                    padding: "4px 12px",
+                    fontSize: 11,
+                    fontFamily: "'Geist Mono', monospace",
+                    border: `1px solid ${i === activeTab ? COLORS.text : COLORS.border}`,
+                    borderRadius: 6,
+                    background: i === activeTab ? COLORS.text : "transparent",
+                    color: i === activeTab ? "#fff" : COLORS.muted,
+                    cursor: "pointer",
+                    fontWeight: i === activeTab ? 600 : 400,
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, color: COLORS.muted }}>{lineCount} lines</span>
+            <button
+              className="icon-btn"
+              onClick={() => setConsoleOpen(o => !o)}
+              style={{
+                padding: "4px 10px", fontSize: 11,
+                border: `1px solid ${COLORS.border}`,
+                borderRadius: 6, background: consoleOpen ? COLORS.tag : "transparent",
+                color: COLORS.muted, cursor: "pointer",
+                fontFamily: "'Geist Mono', monospace",
+              }}
+            >
+              {consoleOpen ? "hide console" : "show console"}
+            </button>
+          </div>
+        </div>
+
+        {/* Main panels */}
+        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+          {/* Code panel */}
+          <div style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            borderRight: `1px solid ${COLORS.border}`,
+            minWidth: 0,
+          }}>
+            {/* Panel header */}
+            <div style={{
+              padding: "8px 16px",
+              fontSize: 10,
+              color: COLORS.muted,
+              letterSpacing: 1.5,
+              textTransform: "uppercase",
+              borderBottom: `1px solid ${COLORS.border}`,
+              background: COLORS.panel,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}>
+              <span>Code</span>
+              <span style={{ color: "#4ade80", fontSize: 9 }}>● editable</span>
+            </div>
+
+            {/* Editor */}
+            <div style={{
+              flex: 1,
+              display: "flex",
+              overflow: "hidden",
+              background: COLORS.panel,
+            }}>
+              {/* Line numbers */}
+              <div style={{
+                padding: "16px 0",
+                minWidth: 44,
+                textAlign: "right",
+                paddingRight: 12,
+                paddingLeft: 8,
+                background: COLORS.panel,
+                color: COLORS.lineNum,
+                fontSize: 12,
+                lineHeight: "20px",
+                userSelect: "none",
+                borderRight: `1px solid ${COLORS.border}`,
+                overflowY: "hidden",
+              }}>
+                {currentCode.split("\n").map((_, i) => (
+                  <div key={i}>{i + 1}</div>
+                ))}
+              </div>
+
+              {/* Textarea */}
+              <textarea
+                ref={textareaRef}
+                value={currentCode}
+                onChange={(e) => {
+                  const newCodes = [...codes];
+                  newCodes[activeTab] = e.target.value;
+                  setCodes(newCodes);
+                }}
+                onKeyDown={handleTabKey}
+                spellCheck={false}
+                style={{
+                  flex: 1,
+                  padding: "16px",
+                  paddingLeft: 14,
+                  fontSize: 12.5,
+                  lineHeight: "20px",
+                  fontFamily: "'Geist Mono', monospace",
+                  background: "transparent",
+                  color: COLORS.text,
+                  border: "none",
+                  overflowY: "auto",
+                  whiteSpace: "pre",
+                  tabSize: 2,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Right column: Preview + Console */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+            {/* Preview */}
+            <div style={{
+              flex: consoleOpen ? "1 1 60%" : "1 1 100%",
+              display: "flex",
+              flexDirection: "column",
+              borderBottom: consoleOpen ? `1px solid ${COLORS.border}` : "none",
+              transition: "flex 0.2s ease",
+            }}>
+              <div style={{
+                padding: "8px 16px",
+                fontSize: 10,
+                color: COLORS.muted,
+                letterSpacing: 1.5,
+                textTransform: "uppercase",
+                borderBottom: `1px solid ${COLORS.border}`,
+                background: COLORS.panel,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}>
+                <span>Preview</span>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f87171" }} />
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fbbf24" }} />
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#4ade80" }} />
+                </div>
+              </div>
+              <iframe
+                key={activeTab}
+                srcDoc={srcDoc}
+                sandbox="allow-scripts allow-same-origin"
+                style={{
+                  flex: 1,
+                  border: "none",
+                  background: "#fff",
+                }}
+                title="preview"
+              />
+            </div>
+
+            {/* Console */}
+            {consoleOpen && (
+              <div style={{
+                flex: "0 0 38%",
+                display: "flex",
+                flexDirection: "column",
+                background: COLORS.consoleBg,
+                minHeight: 0,
+              }}>
+                <div style={{
+                  padding: "7px 16px",
+                  fontSize: 10,
+                  letterSpacing: 1.5,
+                  textTransform: "uppercase",
+                  borderBottom: "1px solid #2a2a2a",
+                  color: "#555",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}>
+                  <span>Console</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {logs.length > 0 && (
+                      <span style={{
+                        background: "#333", color: "#888", borderRadius: 3,
+                        padding: "1px 6px", fontSize: 9,
+                      }}>{logs.length}</span>
+                    )}
+                    <button
+                      onClick={() => setLogs([])}
+                      style={{
+                        background: "none", border: "none", color: "#555",
+                        cursor: "pointer", fontSize: 10, fontFamily: "'Geist Mono', monospace",
+                        padding: 0, letterSpacing: 0.5,
+                      }}
+                    >clear</button>
+                  </div>
+                </div>
+                <div style={{
+                  flex: 1,
+                  overflowY: "auto",
+                  padding: "8px 0",
+                }}>
+                  {logs.length === 0 && (
+                    <div style={{ padding: "8px 16px", color: "#444", fontSize: 12 }}>
+                      No output yet. Try adding <span style={{ color: "#67e8f9" }}>console.log()</span> to your code.
+                    </div>
+                  )}
+                  {logs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="log-entry console-line"
+                      style={{
+                        padding: "5px 16px",
+                        fontSize: 12,
+                        fontFamily: "'Geist Mono', monospace",
+                        lineHeight: "18px",
+                        color:
+                          log.level === "error"
+                            ? COLORS.error
+                            : log.level === "warn"
+                            ? COLORS.warn
+                            : COLORS.log,
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 8,
+                      }}
+                    >
+                      <span style={{ color: "#444", userSelect: "none", flexShrink: 0, fontSize: 10, marginTop: 1 }}>
+                        {log.level === "error" ? "✕" : log.level === "warn" ? "△" : "›"}
+                      </span>
+                      <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{log.msg}</span>
+                    </div>
+                  ))}
+                  <div ref={logsEndRef} />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
