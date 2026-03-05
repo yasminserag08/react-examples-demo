@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import catImg from "./assets/cat.jpg";
 
 // ─── Tabs / Examples ────────────────────────────────────────────────────────
 
-const TABS = [
+const makeTabs = (catSrc) => [
   {
     id: "props",
     label: "Props",
@@ -25,7 +26,7 @@ const TABS = [
 }
 
 function Profile() {
-  const cat = "https://i.pravatar.cc/150?img=47";
+  const cat = "${catSrc}";
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black flex flex-col items-center justify-center p-6">
       <h1 className="text-3xl font-bold text-white mb-8">
@@ -541,8 +542,9 @@ function HighlightedCode({ code }) {
 // ─── iframe srcdoc builder ───────────────────────────────────────────────────
 
 function buildSrcDoc(code) {
-  const match = code.match(/^function\s+([A-Z]\w*)/m);
-  const rootComponent = match ? match[1] : null;
+  // Use the LAST top-level capitalized function as the root component
+  const matches = [...code.matchAll(/^function\s+([A-Z]\w*)/gm)];
+  const rootComponent = matches.length > 0 ? matches[matches.length - 1][1] : null;
 
   return `<!DOCTYPE html>
 <html>
@@ -600,26 +602,91 @@ const C = {
 // ─── Main App ────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const TABS = makeTabs(catImg);
   const [activeTab, setActiveTab]   = useState(0);
-  const [codes, setCodes]           = useState(TABS.map(t => t.code));
+  const [codes, setCodes]           = useState(() => makeTabs(catImg).map(t => t.code));
   const [logs, setLogs]             = useState([]);
   const [consoleOpen, setConsoleOpen] = useState(true);
   const [srcDoc, setSrcDoc]         = useState("");
   const [copied, setCopied]         = useState(false);
   const [editMode, setEditMode]     = useState(false);
 
-  const textareaRef  = useRef(null);
-  const lineNumRef   = useRef(null);
-  const preScrollRef = useRef(null);
-  const logsEndRef   = useRef(null);
+  const [codeWidth, setCodeWidth]         = useState(50); // percent
+  const [consoleHeight, setConsoleHeight] = useState(36); // percent of right column
+
+  const textareaRef    = useRef(null);
+  const lineNumRef     = useRef(null);
+  const preScrollRef   = useRef(null);
+  const logsEndRef     = useRef(null);
+  const mainRef        = useRef(null);
+  const rightColRef    = useRef(null);
+
+  const codeWidthRef     = useRef(codeWidth);
+  const consoleHeightRef = useRef(consoleHeight);
+
+  const startHDrag = useCallback((e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = codeWidthRef.current;
+    let dragging = false;
+    let lastX = startX;
+
+    const onMove = (me) => {
+      const dx = Math.abs(me.clientX - startX);
+      if (!dragging && dx < 4) return; // dead zone
+      dragging = true;
+      if (Math.abs(me.clientX - lastX) < 2) return; // throttle tiny movements
+      lastX = me.clientX;
+      document.body.classList.add("dragging-h");
+      const containerW = mainRef.current?.offsetWidth || window.innerWidth;
+      const next = Math.min(80, Math.max(20, startW + ((me.clientX - startX) / containerW) * 100));
+      codeWidthRef.current = next;
+      setCodeWidth(next);
+    };
+    const onUp = () => {
+      document.body.classList.remove("dragging-h");
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, []);
+
+  const startVDrag = useCallback((e) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = consoleHeightRef.current;
+    let dragging = false;
+    let lastY = startY;
+
+    const onMove = (me) => {
+      const dy = Math.abs(me.clientY - startY);
+      if (!dragging && dy < 4) return; // dead zone
+      dragging = true;
+      if (Math.abs(me.clientY - lastY) < 2) return; // throttle tiny movements
+      lastY = me.clientY;
+      document.body.classList.add("dragging-v");
+      const containerH = rightColRef.current?.offsetHeight || window.innerHeight;
+      const next = Math.min(70, Math.max(10, startH - ((me.clientY - startY) / containerH) * 100));
+      consoleHeightRef.current = next;
+      setConsoleHeight(next);
+    };
+    const onUp = () => {
+      document.body.classList.remove("dragging-v");
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, []);
 
   const currentCode = codes[activeTab];
 
-  // Rebuild iframe on code / tab change
+  // Rebuild preview after debounce whenever code changes
   useEffect(() => {
-    const t = setTimeout(() => { setSrcDoc(buildSrcDoc(currentCode)); setLogs([]); }, 600);
+    const t = setTimeout(() => { setSrcDoc(buildSrcDoc(currentCode)); }, 400);
     return () => clearTimeout(t);
-  }, [currentCode, activeTab]);
+  }, [currentCode]);
 
 
 
@@ -678,7 +745,12 @@ export default function App() {
         @keyframes fadeIn { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:none; } }
         .log-in { animation: fadeIn 0.12s ease; }
         .icon-btn:hover { background: ${C.tag} !important; }
-        .edit-toggle:hover { opacity: 0.8; }
+        .drag-h { width:1px; cursor:col-resize; background:${C.border}; flex-shrink:0; position:relative; }
+        .drag-h::after { content:''; position:absolute; top:0; left:-3px; right:-3px; bottom:0; }
+        .drag-v { height:1px; cursor:row-resize; background:${C.border}; flex-shrink:0; position:relative; }
+        .drag-v::after { content:''; position:absolute; left:0; right:0; top:-3px; bottom:-3px; }
+        .dragging-h * { cursor:col-resize !important; user-select:none !important; }
+        .dragging-v * { cursor:row-resize !important; user-select:none !important; }
       `}</style>
 
       <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Geist Mono',monospace", background:C.bg, color:C.text }}>
@@ -692,7 +764,7 @@ export default function App() {
             <span style={{ width:1, height:16, background:C.border, flexShrink:0 }} />
             <div style={{ display:"flex", gap:4, overflowX:"auto", paddingBottom:1 }}>
               {TABS.map((t, i) => (
-                <button key={t.id} className="tab-btn" onClick={() => { setActiveTab(i); setEditMode(false); }} style={{
+                <button key={t.id} className="tab-btn" onClick={() => { setActiveTab(i); setEditMode(false); setSrcDoc(""); setLogs([]); }} style={{
                   padding:"4px 11px", fontSize:11,
                   fontFamily:"'Geist Mono',monospace",
                   border:`1px solid ${i === activeTab ? C.accent : C.border}`,
@@ -719,10 +791,10 @@ export default function App() {
         </div>
 
         {/* ── Main ── */}
-        <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
+        <div ref={mainRef} style={{ flex:1, display:"flex", overflow:"hidden" }}>
 
           {/* ── Code panel ── */}
-          <div style={{ flex:1, display:"flex", flexDirection:"column", borderRight:`1px solid ${C.border}`, minWidth:0 }}>
+          <div style={{ width:`${codeWidth}%`, display:"flex", flexDirection:"column", minWidth:0, flexShrink:0 }}>
 
             {/* Code header */}
             <div style={{
@@ -819,15 +891,17 @@ export default function App() {
             </div>
           </div>
 
+          {/* ── Horizontal drag handle ── */}
+          <div className="drag-h" onMouseDown={startHDrag} />
+
           {/* ── Right: Preview + Console ── */}
-          <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0 }}>
+          <div ref={rightColRef} style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0 }}>
 
             {/* Preview */}
             <div style={{
-              flex: consoleOpen ? "1 1 60%" : "1 1 100%",
+              flex: consoleOpen ? `1 1 ${100 - consoleHeight}%` : "1 1 100%",
               display:"flex", flexDirection:"column",
-              borderBottom: consoleOpen ? `1px solid ${C.border}` : "none",
-              minHeight:0, transition:"flex 0.2s",
+              minHeight:0, transition:"flex 0.15s",
             }}>
               <div style={{
                 padding:"7px 16px", fontSize:10, color:C.muted,
@@ -843,7 +917,6 @@ export default function App() {
                 </div>
               </div>
               <iframe
-                key={activeTab}
                 srcDoc={srcDoc}
                 sandbox="allow-scripts allow-same-origin"
                 style={{ flex:1, border:"none", background:"#fff" }}
@@ -853,7 +926,10 @@ export default function App() {
 
             {/* Console */}
             {consoleOpen && (
-              <div style={{ flex:"0 0 36%", display:"flex", flexDirection:"column", background:C.consoleBg, minHeight:0 }}>
+              <>
+                {/* ── Vertical drag handle ── */}
+                <div className="drag-v" onMouseDown={startVDrag} />
+                <div style={{ flex:`0 0 ${consoleHeight}%`, display:"flex", flexDirection:"column", background:C.consoleBg, minHeight:0 }}>
                 <div style={{
                   padding:"6px 16px", fontSize:10, letterSpacing:1.5, textTransform:"uppercase",
                   borderBottom:`1px solid ${C.border}`, color:C.muted,
@@ -894,6 +970,7 @@ export default function App() {
                   <div ref={logsEndRef} />
                 </div>
               </div>
+              </>
             )}
           </div>
         </div>
