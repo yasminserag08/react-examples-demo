@@ -514,19 +514,32 @@ function tokenize(code) {
   return tokens;
 }
 
-const TOKEN_COLORS = {
-  keyword:   "#c084fc", // purple
-  hook:      "#38bdf8", // sky blue
-  string:    "#86efac", // green
-  number:    "#fb923c", // orange
-  comment:   "#6b7280", // gray
-  component: "#fde68a", // yellow
-  tag:       "#94a3b8", // slate
-  ident:     "#e2e8f0", // near white
-  plain:     "#cbd5e1", // light slate
+const TOKEN_COLORS_DARK = {
+  keyword:   "#c084fc",
+  hook:      "#38bdf8",
+  string:    "#86efac",
+  number:    "#fb923c",
+  comment:   "#6b7280",
+  component: "#fde68a",
+  tag:       "#94a3b8",
+  ident:     "#e2e8f0",
+  plain:     "#cbd5e1",
 };
 
-function HighlightedCode({ code }) {
+const TOKEN_COLORS_LIGHT = {
+  keyword:   "#8250df",
+  hook:      "#0550ae",
+  string:    "#116329",
+  number:    "#953800",
+  comment:   "#6e7781",
+  component: "#953800",
+  tag:       "#57606a",
+  ident:     "#1f2328",
+  plain:     "#57606a",
+};
+
+function HighlightedCode({ code, dark }) {
+  const TOKEN_COLORS = dark ? TOKEN_COLORS_DARK : TOKEN_COLORS_LIGHT;
   const tokens = tokenize(code);
   return (
     <code style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12.5, lineHeight: "20px" }}>
@@ -582,10 +595,9 @@ function buildSrcDoc(code) {
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 
-const C = {
+const DARK = {
   bg:         "#0f1117",
   panel:      "#161b22",
-  panelAlt:   "#1c2128",
   border:     "#30363d",
   text:       "#e6edf3",
   muted:      "#8b949e",
@@ -599,6 +611,22 @@ const C = {
   green:      "#3fb950",
 };
 
+const LIGHT = {
+  bg:         "#ffffff",
+  panel:      "#f6f8fa",
+  border:     "#d0d7de",
+  text:       "#1f2328",
+  muted:      "#656d76",
+  accent:     "#0969da",
+  tag:        "#eaeef2",
+  consoleBg:  "#f6f8fa",
+  log:        "#1f2328",
+  warn:       "#9a6700",
+  error:      "#d1242f",
+  lineNum:    "#8c959f",
+  green:      "#1a7f37",
+};
+
 // ─── Main App ────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -610,75 +638,13 @@ export default function App() {
   const [srcDoc, setSrcDoc]         = useState("");
   const [copied, setCopied]         = useState(false);
   const [editMode, setEditMode]     = useState(false);
+  const [dark, setDark]             = useState(true);
+  const C = dark ? DARK : LIGHT;
 
-  const [codeWidth, setCodeWidth]         = useState(50); // percent
-  const [consoleHeight, setConsoleHeight] = useState(36); // percent of right column
-
-  const textareaRef    = useRef(null);
-  const lineNumRef     = useRef(null);
-  const preScrollRef   = useRef(null);
-  const logsEndRef     = useRef(null);
-  const mainRef        = useRef(null);
-  const rightColRef    = useRef(null);
-
-  const codeWidthRef     = useRef(codeWidth);
-  const consoleHeightRef = useRef(consoleHeight);
-
-  const startHDrag = useCallback((e) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startW = codeWidthRef.current;
-    let dragging = false;
-    let lastX = startX;
-
-    const onMove = (me) => {
-      const dx = Math.abs(me.clientX - startX);
-      if (!dragging && dx < 4) return; // dead zone
-      dragging = true;
-      if (Math.abs(me.clientX - lastX) < 2) return; // throttle tiny movements
-      lastX = me.clientX;
-      document.body.classList.add("dragging-h");
-      const containerW = mainRef.current?.offsetWidth || window.innerWidth;
-      const next = Math.min(80, Math.max(20, startW + ((me.clientX - startX) / containerW) * 100));
-      codeWidthRef.current = next;
-      setCodeWidth(next);
-    };
-    const onUp = () => {
-      document.body.classList.remove("dragging-h");
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, []);
-
-  const startVDrag = useCallback((e) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startH = consoleHeightRef.current;
-    let dragging = false;
-    let lastY = startY;
-
-    const onMove = (me) => {
-      const dy = Math.abs(me.clientY - startY);
-      if (!dragging && dy < 4) return; // dead zone
-      dragging = true;
-      if (Math.abs(me.clientY - lastY) < 2) return; // throttle tiny movements
-      lastY = me.clientY;
-      document.body.classList.add("dragging-v");
-      const containerH = rightColRef.current?.offsetHeight || window.innerHeight;
-      const next = Math.min(70, Math.max(10, startH - ((me.clientY - startY) / containerH) * 100));
-      consoleHeightRef.current = next;
-      setConsoleHeight(next);
-    };
-    const onUp = () => {
-      document.body.classList.remove("dragging-v");
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, []);
+  const textareaRef  = useRef(null);
+  const lineNumRef   = useRef(null);
+  const preScrollRef = useRef(null);
+  const logsEndRef   = useRef(null);
 
   const currentCode = codes[activeTab];
 
@@ -705,7 +671,10 @@ export default function App() {
   // Sync scroll between highlighted pre and textarea
   const syncScroll = (e) => {
     if (lineNumRef.current) lineNumRef.current.scrollTop = e.target.scrollTop;
-    if (preScrollRef.current) preScrollRef.current.scrollTop = e.target.scrollTop;
+    if (preScrollRef.current) {
+      preScrollRef.current.scrollTop  = e.target.scrollTop;
+      preScrollRef.current.scrollLeft = e.target.scrollLeft;
+    }
   };
 
   const handleTabKey = (e) => {
@@ -738,19 +707,13 @@ export default function App() {
         textarea::selection { background: #58a6ff33; }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 2px; }
         .tab-btn { transition: all 0.15s; }
         .tab-btn:hover { background: ${C.tag} !important; color: ${C.text} !important; }
-        .console-row { border-bottom: 1px solid #1c2128; }
+        .console-row { border-bottom: 1px solid ${dark ? "#1c2128" : "#d0d7de"}; }
         @keyframes fadeIn { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:none; } }
         .log-in { animation: fadeIn 0.12s ease; }
         .icon-btn:hover { background: ${C.tag} !important; }
-        .drag-h { width:1px; cursor:col-resize; background:${C.border}; flex-shrink:0; position:relative; }
-        .drag-h::after { content:''; position:absolute; top:0; left:-3px; right:-3px; bottom:0; }
-        .drag-v { height:1px; cursor:row-resize; background:${C.border}; flex-shrink:0; position:relative; }
-        .drag-v::after { content:''; position:absolute; left:0; right:0; top:-3px; bottom:-3px; }
-        .dragging-h * { cursor:col-resize !important; user-select:none !important; }
-        .dragging-v * { cursor:row-resize !important; user-select:none !important; }
       `}</style>
 
       <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Geist Mono',monospace", background:C.bg, color:C.text }}>
@@ -769,7 +732,7 @@ export default function App() {
                   fontFamily:"'Geist Mono',monospace",
                   border:`1px solid ${i === activeTab ? C.accent : C.border}`,
                   borderRadius:6,
-                  background: i === activeTab ? "#1f3a5f" : "transparent",
+                  background: i === activeTab ? (dark ? "#1f3a5f" : "#dce8f8") : "transparent",
                   color: i === activeTab ? C.accent : C.muted,
                   cursor:"pointer", fontWeight: i === activeTab ? 600 : 400,
                   letterSpacing:0.3, whiteSpace:"nowrap", flexShrink:0,
@@ -780,6 +743,13 @@ export default function App() {
 
           <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
             <span style={{ fontSize:10, color:C.muted }}>{lineCount} lines</span>
+            {/* Theme toggle */}
+            <button onClick={() => setDark(d => !d)} className="icon-btn" style={{
+              padding:"4px 10px", fontSize:11,
+              border:`1px solid ${C.border}`, borderRadius:6,
+              background:"transparent", color:C.muted,
+              cursor:"pointer", fontFamily:"'Geist Mono',monospace",
+            }}>{dark ? "☀ light" : "☾ dark"}</button>
             <button onClick={() => setConsoleOpen(o => !o)} className="icon-btn" style={{
               padding:"4px 10px", fontSize:11,
               border:`1px solid ${C.border}`, borderRadius:6,
@@ -791,10 +761,10 @@ export default function App() {
         </div>
 
         {/* ── Main ── */}
-        <div ref={mainRef} style={{ flex:1, display:"flex", overflow:"hidden" }}>
+        <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
 
           {/* ── Code panel ── */}
-          <div style={{ width:`${codeWidth}%`, display:"flex", flexDirection:"column", minWidth:0, flexShrink:0 }}>
+          <div style={{ flex:1, display:"flex", flexDirection:"column", borderRight:`1px solid ${C.border}`, minWidth:0 }}>
 
             {/* Code header */}
             <div style={{
@@ -858,7 +828,7 @@ export default function App() {
                   tabSize:2,
                 }}
               >
-                <HighlightedCode code={currentCode} />
+                <HighlightedCode code={currentCode} dark={dark} />
               </pre>
 
               {/* Transparent textarea on top (only active in edit mode) */}
@@ -878,12 +848,12 @@ export default function App() {
                   fontSize:12.5, lineHeight:"20px",
                   fontFamily:"'Geist Mono',monospace",
                   background:"transparent",
-                  color: editMode ? "rgba(255,255,255,0.05)" : "transparent",
+                  color: editMode ? (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)") : "transparent",
                   border:"none",
                   overflowY:"auto", overflowX:"auto",
                   whiteSpace:"pre", tabSize:2,
                   cursor: editMode ? "text" : "default",
-                  caretColor: editMode ? "#58a6ff" : "transparent",
+                  caretColor: editMode ? C.accent : "transparent",
                   zIndex:2,
                   resize:"none",
                 }}
@@ -891,18 +861,11 @@ export default function App() {
             </div>
           </div>
 
-          {/* ── Horizontal drag handle ── */}
-          <div className="drag-h" onMouseDown={startHDrag} />
-
           {/* ── Right: Preview + Console ── */}
-          <div ref={rightColRef} style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0 }}>
+          <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0 }}>
 
             {/* Preview */}
-            <div style={{
-              flex: consoleOpen ? `1 1 ${100 - consoleHeight}%` : "1 1 100%",
-              display:"flex", flexDirection:"column",
-              minHeight:0, transition:"flex 0.15s",
-            }}>
+            <div style={{ flex: consoleOpen ? "1 1 60%" : "1 1 100%", display:"flex", flexDirection:"column", minHeight:0 }}>
               <div style={{
                 padding:"7px 16px", fontSize:10, color:C.muted,
                 letterSpacing:1.5, textTransform:"uppercase",
@@ -926,10 +889,7 @@ export default function App() {
 
             {/* Console */}
             {consoleOpen && (
-              <>
-                {/* ── Vertical drag handle ── */}
-                <div className="drag-v" onMouseDown={startVDrag} />
-                <div style={{ flex:`0 0 ${consoleHeight}%`, display:"flex", flexDirection:"column", background:C.consoleBg, minHeight:0 }}>
+              <div style={{ flex:"0 0 36%", display:"flex", flexDirection:"column", background:C.consoleBg, minHeight:0, borderTop:`1px solid ${C.border}` }}>
                 <div style={{
                   padding:"6px 16px", fontSize:10, letterSpacing:1.5, textTransform:"uppercase",
                   borderBottom:`1px solid ${C.border}`, color:C.muted,
@@ -970,7 +930,6 @@ export default function App() {
                   <div ref={logsEndRef} />
                 </div>
               </div>
-              </>
             )}
           </div>
         </div>
