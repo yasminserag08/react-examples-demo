@@ -25,7 +25,7 @@ const makeTabs = (catSrc) => [
   );
 }
 
-function Profile() {
+export default function Profile() {
   const cat = "${catSrc}";
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black flex flex-col items-center justify-center p-6">
@@ -45,7 +45,7 @@ function Profile() {
   {
     id: "usestate",
     label: "useState",
-    code: `function Counter() {
+    code: `export default function Counter() {
   const [count, setCount] = React.useState(0);
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
@@ -79,7 +79,7 @@ function Profile() {
   }
 }
 
-function Counter() {
+export default function Counter() {
   const [state, dispatch] = React.useReducer(reducer, { count: 0 });
 
   return (
@@ -119,24 +119,43 @@ function todoReducer(state, action) {
       );
     case "DELETE":
       return state.filter(todo => todo.id !== action.id);
+    case "EDIT":
+      return state.map(todo =>
+        todo.id === action.id ? { ...todo, text: action.text } : todo
+      );
     default:
       return state;
   }
 }
 
-function TodoApp() {
+export default function TodoApp() {
   const [todos, dispatch] = useReducer(todoReducer, [
     { id: 1, text: "Learn useReducer", done: true },
     { id: 2, text: "Build a Todo app", done: false },
     { id: 3, text: "Present to the class", done: false },
   ]);
   const [input, setInput] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editText, setEditText] = useState("");
 
   const handleAdd = () => {
     if (!input.trim()) return;
     dispatch({ type: "ADD", text: input.trim() });
     console.log("Added:", input.trim());
     setInput("");
+  };
+
+  const handleEditStart = (todo) => {
+    setEditingId(todo.id);
+    setEditText(todo.text);
+  };
+
+  const handleEditSave = (id) => {
+    if (!editText.trim()) return;
+    dispatch({ type: "EDIT", id, text: editText.trim() });
+    console.log("Edited:", editText.trim());
+    setEditingId(null);
+    setEditText("");
   };
 
   const done = todos.filter(t => t.done).length;
@@ -175,18 +194,47 @@ function TodoApp() {
                 type="checkbox"
                 checked={todo.done}
                 onChange={() => dispatch({ type: "TOGGLE", id: todo.id })}
-                className="w-4 h-4 accent-indigo-500 cursor-pointer"
+                className="w-4 h-4 accent-indigo-500 cursor-pointer flex-shrink-0"
               />
-              <span className={\`flex-1 text-sm \${todo.done ? "line-through text-slate-400" : "text-slate-700"}\`}>
-                {todo.text}
-              </span>
-              <button
-                onClick={() => {
-                  dispatch({ type: "DELETE", id: todo.id });
-                  console.log("Deleted:", todo.text);
-                }}
-                className="text-slate-300 hover:text-red-400 transition text-xs opacity-0 group-hover:opacity-100"
-              >✕</button>
+              {editingId === todo.id ? (
+                <div className="flex flex-1 gap-2 items-center">
+                  <input
+                    className="flex-1 border border-indigo-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    value={editText}
+                    onChange={e => setEditText(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") handleEditSave(todo.id);
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => handleEditSave(todo.id)}
+                    className="text-indigo-500 hover:text-indigo-700 text-xs font-medium"
+                  >save</button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="text-slate-400 hover:text-slate-600 text-xs"
+                  >cancel</button>
+                </div>
+              ) : (
+                <>
+                  <span className={\`flex-1 text-sm \${todo.done ? "line-through text-slate-400" : "text-slate-700"}\`}>
+                    {todo.text}
+                  </span>
+                  <button
+                    onClick={() => handleEditStart(todo)}
+                    className="text-slate-300 hover:text-indigo-400 transition text-xs opacity-0 group-hover:opacity-100"
+                  >✎</button>
+                  <button
+                    onClick={() => {
+                      dispatch({ type: "DELETE", id: todo.id });
+                      console.log("Deleted:", todo.text);
+                    }}
+                    className="text-slate-300 hover:text-red-400 transition text-xs opacity-0 group-hover:opacity-100"
+                  >✕</button>
+                </>
+              )}
             </li>
           ))}
         </ul>
@@ -202,7 +250,7 @@ function TodoApp() {
   {
     id: "usememo",
     label: "useMemo",
-    code: `function App() {
+    code: `export default function App() {
   const items = React.useMemo(() => Array.from({ length: 10000 }, (_, i) => \`Item \${i}\`), []);
   const [count, setCount] = React.useState(0);
   const [search, setSearch] = React.useState("");
@@ -243,7 +291,7 @@ function TodoApp() {
     label: "useCallback",
     code: `const { useState, useCallback, memo } = React;
 
-function App() {
+export default function App() {
   const [darkMode, setDarkMode] = useState(false);
   const theme = darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-900";
 
@@ -303,7 +351,7 @@ const NewsletterForm = memo(function NewsletterForm({ onSubscribe }) {
 
 const ThemeContext = createContext("light");
 
-function App() {
+export default function App() {
   const [theme, setTheme] = useState("light");
   const toggleTheme = () => setTheme((prev) => (prev === "light" ? "dark" : "light"));
 
@@ -360,7 +408,7 @@ const NewsletterForm = memo(function NewsletterForm() {
   {
     id: "fetching",
     label: "Data Fetching",
-    code: `function RandomPainting() {
+    code: `export default function RandomPainting() {
   const [painting, setPainting] = React.useState({ title: "", artist: "", image: "" });
   const [loading, setLoading] = React.useState(true);
 
@@ -422,7 +470,6 @@ const NewsletterForm = memo(function NewsletterForm() {
 ];
 
 // ─── Syntax Highlighter ─────────────────────────────────────────────────────
-// Lightweight regex-based JSX tokenizer — no external deps needed
 
 const KEYWORDS = new Set([
   "const","let","var","function","return","if","else","switch","case","default",
@@ -437,11 +484,9 @@ const HOOKS = new Set([
 ]);
 
 function tokenize(code) {
-  // Returns array of {type, value} tokens
   const tokens = [];
   let i = 0;
   while (i < code.length) {
-    // Line comment
     if (code[i] === "/" && code[i+1] === "/") {
       let j = i;
       while (j < code.length && code[j] !== "\n") j++;
@@ -449,7 +494,6 @@ function tokenize(code) {
       i = j;
       continue;
     }
-    // Block comment
     if (code[i] === "/" && code[i+1] === "*") {
       let j = i + 2;
       while (j < code.length && !(code[j-1] === "*" && code[j] === "/")) j++;
@@ -457,7 +501,6 @@ function tokenize(code) {
       i = j + 1;
       continue;
     }
-    // Template literal
     if (code[i] === "`") {
       let j = i + 1;
       while (j < code.length && code[j] !== "`") {
@@ -468,7 +511,6 @@ function tokenize(code) {
       i = j + 1;
       continue;
     }
-    // String single/double
     if (code[i] === '"' || code[i] === "'") {
       const q = code[i];
       let j = i + 1;
@@ -480,8 +522,6 @@ function tokenize(code) {
       i = j + 1;
       continue;
     }
-    // JSX string attribute value
-    // Number
     if (/[0-9]/.test(code[i]) && (i === 0 || /\W/.test(code[i-1]))) {
       let j = i;
       while (j < code.length && /[0-9.]/.test(code[j])) j++;
@@ -489,7 +529,6 @@ function tokenize(code) {
       i = j;
       continue;
     }
-    // Identifier / keyword / hook
     if (/[a-zA-Z_$]/.test(code[i])) {
       let j = i;
       while (j < code.length && /[a-zA-Z0-9_$]/.test(code[j])) j++;
@@ -501,13 +540,11 @@ function tokenize(code) {
       i = j;
       continue;
     }
-    // JSX tag bracket
     if (code[i] === "<" || code[i] === ">") {
       tokens.push({ type: "tag", value: code[i] });
       i++;
       continue;
     }
-    // Punctuation / operator
     tokens.push({ type: "plain", value: code[i] });
     i++;
   }
@@ -555,8 +592,11 @@ function HighlightedCode({ code, dark }) {
 // ─── iframe srcdoc builder ───────────────────────────────────────────────────
 
 function buildSrcDoc(code) {
-  // Use the LAST top-level capitalized function as the root component
-  const matches = [...code.matchAll(/^function\s+([A-Z]\w*)/gm)];
+  const sanitized = code
+    .replace(/export\s+default\s+/g, "")
+    .replace(/export\s+/g, "");
+
+  const matches = [...sanitized.matchAll(/^function\s+([A-Z]\w*)/gm)];
   const rootComponent = matches.length > 0 ? matches[matches.length - 1][1] : null;
 
   return `<!DOCTYPE html>
@@ -573,17 +613,18 @@ function buildSrcDoc(code) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <script>
   const _log = console.log.bind(console), _err = console.error.bind(console), _warn = console.warn.bind(console);
-  console.log = (...a) => { _log(...a); window.parent.postMessage({type:'log',level:'log',msg:a.map(x=>typeof x==='object'?JSON.stringify(x,null,2):String(x)).join(' ')},'*'); };
-  console.error = (...a) => { _err(...a); window.parent.postMessage({type:'log',level:'error',msg:a.map(String).join(' ')},'*'); };
-  console.warn = (...a) => { _warn(...a); window.parent.postMessage({type:'log',level:'warn',msg:a.map(String).join(' ')},'*'); };
+  const isBabelNoise = (...a) => a.map(String).join(' ').toLowerCase().includes('babel');
+  console.log = (...a) => { _log(...a); if (!isBabelNoise(...a)) window.parent.postMessage({type:'log',level:'log',msg:a.map(x=>typeof x==='object'?JSON.stringify(x,null,2):String(x)).join(' ')},'*'); };
+  console.error = (...a) => { _err(...a); if (!isBabelNoise(...a)) window.parent.postMessage({type:'log',level:'error',msg:a.map(String).join(' ')},'*'); };
+  console.warn = (...a) => { _warn(...a); if (!isBabelNoise(...a)) window.parent.postMessage({type:'log',level:'warn',msg:a.map(String).join(' ')},'*'); };
   window.addEventListener('error', e => window.parent.postMessage({type:'log',level:'error',msg:e.message},'*'));
 </script>
 <script type="text/babel" data-presets="react">
   try {
-    ${code}
+    ${sanitized}
     ${rootComponent
       ? `ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(${rootComponent}));`
-      : `document.getElementById('root').innerHTML='<div style="color:#888;padding:20px;font-family:monospace">No root component found.</div>';`
+      : `document.getElementById('root').innerHTML='<div style="color:#888;padding:20px;font-family:monospace">No root component found.</div>'; window.parent.postMessage({type:'log',level:'warn',msg:'No default export found — add export default to your root component.'},'*');`
     }
   } catch(e) {
     document.getElementById('root').innerHTML=\`<div style="color:#ef4444;padding:20px;font-family:monospace;font-size:13px;white-space:pre-wrap">\${e.message}</div>\`;
@@ -609,6 +650,13 @@ const DARK = {
   error:      "#f85149",
   lineNum:    "#484f58",
   green:      "#3fb950",
+  // active states — dark mode (original deep blues/greens)
+  btnActiveBg:        "#1f3a5f",
+  btnActiveBorder:    "#58a6ff",
+  btnActiveColor:     "#58a6ff",
+  copiedActiveBg:     "#1a3a2a",
+  copiedActiveBorder: "#3fb950",
+  copiedActiveColor:  "#3fb950",
 };
 
 const LIGHT = {
@@ -625,6 +673,13 @@ const LIGHT = {
   error:      "#d1242f",
   lineNum:    "#8c959f",
   green:      "#1a7f37",
+  // active states — light mode (soft pastels so text stays readable)
+  btnActiveBg:        "#dbeafe",
+  btnActiveBorder:    "#93c5fd",
+  btnActiveColor:     "#1d4ed8",
+  copiedActiveBg:     "#dcfce7",
+  copiedActiveBorder: "#86efac",
+  copiedActiveColor:  "#15803d",
 };
 
 // ─── Main App ────────────────────────────────────────────────────────────────
@@ -648,15 +703,11 @@ export default function App() {
 
   const currentCode = codes[activeTab];
 
-  // Rebuild preview after debounce whenever code changes
   useEffect(() => {
     const t = setTimeout(() => { setSrcDoc(buildSrcDoc(currentCode)); }, 400);
     return () => clearTimeout(t);
   }, [currentCode]);
 
-
-
-  // Listen for console messages from iframe
   useEffect(() => {
     const h = (e) => {
       if (e.data?.type === "log")
@@ -668,7 +719,6 @@ export default function App() {
 
   useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [logs]);
 
-  // Sync scroll between highlighted pre and textarea
   const syncScroll = (e) => {
     if (lineNumRef.current) lineNumRef.current.scrollTop = e.target.scrollTop;
     if (preScrollRef.current) {
@@ -714,6 +764,7 @@ export default function App() {
         @keyframes fadeIn { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:none; } }
         .log-in { animation: fadeIn 0.12s ease; }
         .icon-btn:hover { background: ${C.tag} !important; }
+        .tooltip-anchor:hover .tooltip-box { opacity: 1 !important; }
       `}</style>
 
       <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Geist Mono',monospace", background:C.bg, color:C.text }}>
@@ -743,7 +794,26 @@ export default function App() {
 
           <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
             <span style={{ fontSize:10, color:C.muted }}>{lineCount} lines</span>
-            {/* Theme toggle */}
+            <span style={{ position:"relative", display:"inline-block" }} className="tooltip-anchor">
+              <span style={{ fontSize:10, color:C.muted, cursor:"help", borderBottom:`1px dashed ${C.muted}`, lineHeight:"14px" }}>
+                simplified env ⓘ
+              </span>
+              <span className="tooltip-box" style={{
+                position:"absolute", bottom:"calc(100% + 8px)", right:0,
+                background: dark ? "#1c2128" : "#ffffff",
+                border: `1px solid ${C.border}`,
+                borderRadius:7, padding:"8px 11px",
+                fontSize:11, lineHeight:"17px",
+                color: C.muted,
+                width:240, whiteSpace:"normal",
+                boxShadow: dark ? "0 4px 16px rgba(0,0,0,0.5)" : "0 4px 16px rgba(0,0,0,0.12)",
+                pointerEvents:"none",
+                opacity:0, transition:"opacity 0.15s",
+                zIndex:99,
+              }}>
+                This is a <span style={{ color:C.text }}>simplified learning environment</span> — no bundler, no npm, no imports. It runs React directly in the browser via CDN Babel. Real React apps use a build tool like Vite or Next.js.
+              </span>
+            </span>
             <button onClick={() => setDark(d => !d)} className="icon-btn" style={{
               padding:"4px 10px", fontSize:11,
               border:`1px solid ${C.border}`, borderRadius:6,
@@ -775,24 +845,24 @@ export default function App() {
             }}>
               <span style={{ color:C.muted }}>Code</span>
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                {/* Edit toggle */}
+                {/* Edit toggle — uses theme-aware active colors */}
                 <button className="edit-toggle" onClick={() => setEditMode(m => !m)} style={{
                   padding:"3px 9px", fontSize:10, borderRadius:5,
-                  border:`1px solid ${editMode ? C.accent : C.border}`,
-                  background: editMode ? "#1f3a5f" : "transparent",
-                  color: editMode ? C.accent : C.muted,
+                  border:`1px solid ${editMode ? C.btnActiveBorder : C.border}`,
+                  background: editMode ? C.btnActiveBg : "transparent",
+                  color: editMode ? C.btnActiveColor : C.muted,
                   cursor:"pointer", fontFamily:"'Geist Mono',monospace",
                   display:"flex", alignItems:"center", gap:4,
                 }}>
-                  <span style={{ fontSize:9 }}>{editMode ? "✎" : "✎"}</span>
+                  <span style={{ fontSize:9 }}>✎</span>
                   {editMode ? "editing" : "edit"}
                 </button>
-                {/* Copy button */}
+                {/* Copy button — uses theme-aware active colors */}
                 <button onClick={handleCopy} className="icon-btn" style={{
                   padding:"3px 9px", fontSize:10, borderRadius:5,
-                  border:`1px solid ${copied ? C.green : C.border}`,
-                  background: copied ? "#1a3a2a" : "transparent",
-                  color: copied ? C.green : C.muted,
+                  border:`1px solid ${copied ? C.copiedActiveBorder : C.border}`,
+                  background: copied ? C.copiedActiveBg : "transparent",
+                  color: copied ? C.copiedActiveColor : C.muted,
                   cursor:"pointer", fontFamily:"'Geist Mono',monospace",
                   display:"flex", alignItems:"center", gap:4, transition:"all 0.2s",
                 }}>
@@ -831,7 +901,7 @@ export default function App() {
                 <HighlightedCode code={currentCode} dark={dark} />
               </pre>
 
-              {/* Transparent textarea on top (only active in edit mode) */}
+              {/* Transparent textarea on top */}
               <textarea
                 ref={textareaRef}
                 value={currentCode}
@@ -881,7 +951,7 @@ export default function App() {
               </div>
               <iframe
                 srcDoc={srcDoc}
-                sandbox="allow-scripts allow-same-origin"
+                sandbox="allow-scripts allow-same-origin allow-forms"
                 style={{ flex:1, border:"none", background:"#fff" }}
                 title="preview"
               />
