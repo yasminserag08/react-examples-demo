@@ -7,7 +7,9 @@ const makeTabs = (catSrc) => [
   {
     id: "props",
     label: "Props",
-    code: `function UserCard({name, role, image, isOnline}) {
+    code: `import React from "react";
+
+function UserCard({name, role, image, isOnline}) {
   console.log({name, role, image, isOnline});
   return (
     <div className="w-72 p-6 rounded-2xl bg-gray-900 text-white shadow-xl text-center">
@@ -45,8 +47,10 @@ export default function Profile() {
   {
     id: "usestate",
     label: "useState",
-    code: `export default function Counter() {
-  const [count, setCount] = React.useState(0);
+    code: `import React, { useState } from "react";
+
+export default function Counter() {
+  const [count, setCount] = useState(0);
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
       <div className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-md w-64">
@@ -68,7 +72,9 @@ export default function Profile() {
   {
     id: "usereducer",
     label: "useReducer",
-    code: `function reducer(state, action) {
+    code: `import React, { useReducer } from "react";
+
+function reducer(state, action) {
   switch(action.type) {
     case "increment":
       return { count: state.count + 1 };
@@ -80,7 +86,7 @@ export default function Profile() {
 }
 
 export default function Counter() {
-  const [state, dispatch] = React.useReducer(reducer, { count: 0 });
+  const [state, dispatch] = useReducer(reducer, { count: 0 });
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
@@ -107,19 +113,27 @@ export default function Counter() {
   {
     id: "todo",
     label: "Todo App",
-    code: `const { useReducer, useState } = React;
+    code: `import React, { useReducer, useState } from "react";
 
+// This is our reducer — it handles all the ways a todo can change.
+// Instead of scattering setX calls everywhere, every update goes through here.
 function todoReducer(state, action) {
   switch (action.type) {
     case "ADD":
+      // Spread the existing todos and tack on a new one at the end.
+      // We use Date.now() as a quick unique ID.
       return [...state, { id: Date.now(), text: action.text, done: false }];
     case "TOGGLE":
+      // Flip the done status of whichever todo was clicked.
+      // Every other todo stays exactly the same.
       return state.map(todo =>
         todo.id === action.id ? { ...todo, done: !todo.done } : todo
       );
     case "DELETE":
+      // Keep everything except the todo we want to remove.
       return state.filter(todo => todo.id !== action.id);
     case "EDIT":
+      // Swap in the new text for the matching todo, leave the rest alone.
       return state.map(todo =>
         todo.id === action.id ? { ...todo, text: action.text } : todo
       );
@@ -129,40 +143,53 @@ function todoReducer(state, action) {
 }
 
 export default function TodoApp() {
+  // useReducer gives us the todos array + a dispatch function to trigger changes.
+  // The second argument is our initial list of todos.
   const [todos, dispatch] = useReducer(todoReducer, [
     { id: 1, text: "Learn useReducer", done: true },
     { id: 2, text: "Build a Todo app", done: false },
     { id: 3, text: "Present to the class", done: false },
   ]);
+
+  // Controlled input for the "add new todo" field
   const [input, setInput] = useState("");
+
+  // These two track which todo is currently being edited (if any)
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState("");
 
   const handleAdd = () => {
+    // Don't add empty or whitespace-only todos
     if (!input.trim()) return;
     dispatch({ type: "ADD", text: input.trim() });
     console.log("Added:", input.trim());
-    setInput("");
+    setInput(""); // clear the input after adding
   };
 
   const handleEditStart = (todo) => {
+    // Store which todo we're editing and pre-fill the edit input with its current text
     setEditingId(todo.id);
     setEditText(todo.text);
   };
 
   const handleEditSave = (id) => {
+    // Don't save if they cleared the text entirely
     if (!editText.trim()) return;
     dispatch({ type: "EDIT", id, text: editText.trim() });
     console.log("Edited:", editText.trim());
+    // Reset editing state — this takes us back to the normal view
     setEditingId(null);
     setEditText("");
   };
 
+  // Just a quick count for the "X/Y done" badge in the header
   const done = todos.filter(t => t.done).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-6">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-6">
+
+        {/* Header with the live done/total counter */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-slate-800">My Todos</h1>
           <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full">
@@ -170,6 +197,7 @@ export default function TodoApp() {
           </span>
         </div>
 
+        {/* Add new todo — pressing Enter also triggers handleAdd */}
         <div className="flex gap-2 mb-4">
           <input
             className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
@@ -190,12 +218,15 @@ export default function TodoApp() {
               key={todo.id}
               className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition group"
             >
+              {/* Checkbox toggles done/undone */}
               <input
                 type="checkbox"
                 checked={todo.done}
                 onChange={() => dispatch({ type: "TOGGLE", id: todo.id })}
                 className="w-4 h-4 accent-indigo-500 cursor-pointer flex-shrink-0"
               />
+
+              {/* If this todo is being edited, show the inline edit form instead */}
               {editingId === todo.id ? (
                 <div className="flex flex-1 gap-2 items-center">
                   <input
@@ -204,7 +235,7 @@ export default function TodoApp() {
                     onChange={e => setEditText(e.target.value)}
                     onKeyDown={e => {
                       if (e.key === "Enter") handleEditSave(todo.id);
-                      if (e.key === "Escape") setEditingId(null);
+                      if (e.key === "Escape") setEditingId(null); // cancel on Escape
                     }}
                     autoFocus
                   />
@@ -219,9 +250,11 @@ export default function TodoApp() {
                 </div>
               ) : (
                 <>
+                  {/* Strike through the text if it's done */}
                   <span className={\`flex-1 text-sm \${todo.done ? "line-through text-slate-400" : "text-slate-700"}\`}>
                     {todo.text}
                   </span>
+                  {/* Edit and delete buttons are hidden until you hover the row (group-hover) */}
                   <button
                     onClick={() => handleEditStart(todo)}
                     className="text-slate-300 hover:text-indigo-400 transition text-xs opacity-0 group-hover:opacity-100"
@@ -239,6 +272,7 @@ export default function TodoApp() {
           ))}
         </ul>
 
+        {/* Only shows up when all todos have been deleted */}
         {todos.length === 0 && (
           <p className="text-center text-slate-400 text-sm py-4">All done! 🎉</p>
         )}
@@ -250,12 +284,14 @@ export default function TodoApp() {
   {
     id: "usememo",
     label: "useMemo",
-    code: `export default function App() {
-  const items = React.useMemo(() => Array.from({ length: 10000 }, (_, i) => \`Item \${i}\`), []);
-  const [count, setCount] = React.useState(0);
-  const [search, setSearch] = React.useState("");
+    code: `import React, { useState, useMemo } from "react";
 
-  const filteredItems = React.useMemo(() => {
+export default function App() {
+  const items = useMemo(() => Array.from({ length: 10000 }, (_, i) => \`Item \${i}\`), []);
+  const [count, setCount] = useState(0);
+  const [search, setSearch] = useState("");
+
+  const filteredItems = useMemo(() => {
     console.log("Filtering...");
     return items.filter(item =>
       item.toLowerCase().includes(search.toLowerCase())
@@ -289,46 +325,62 @@ export default function TodoApp() {
   {
     id: "usecallback",
     label: "useCallback",
-    code: `const { useState, useCallback, memo } = React;
+    code: `import { useState, useCallback, memo } from "react";
 
-export default function App() {
+export default function MarketingPage({ campaignId = "summer2026", source = "instagram" }) {
   const [darkMode, setDarkMode] = useState(false);
-  const theme = darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-900";
+
+  // MarketingPage uses this Tailwind theme
+  const theme = darkMode
+    ? "bg-gray-900 text-white"
+    : "bg-gray-100 text-gray-900";
+
+  const handleSubscribe = useCallback(
+    (email) => {
+      console.log("Subscribed:", campaignId, source, email);
+    }, [campaignId, source]
+  );
 
   return (
     <div className={\`min-h-screen p-8 transition-all \${theme}\`}>
       <div className="max-w-md mx-auto space-y-6">
+
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Marketing Page</h1>
           <button
-            onClick={() => setDarkMode((prev) => !prev)}
+            onClick={() => setDarkMode(prev => !prev)}
             className="px-4 py-2 bg-indigo-500 text-white rounded-lg"
-          >Toggle Theme</button>
+          >
+            Toggle Theme
+          </button>
         </div>
-        <MarketingPage campaignId="summer2026" source="instagram" theme={theme} />
+
+        {/* Newsletter Card (does NOT use theme) */}
+        <div className="bg-white text-black rounded-xl shadow-lg p-6">
+          <h2 className="text-lg font-semibold mb-4">Join Our Newsletter</h2>
+          <NewsletterForm onSubscribe={handleSubscribe} />
+        </div>
+
       </div>
     </div>
   );
 }
 
-function MarketingPage({ campaignId, source, theme }) {
-  const handleSubscribe = useCallback((email) => {
-    console.log("Subscribed:", campaignId, source, email);
-  }, [campaignId, source]);
-
-  return (
-    <div className="bg-white text-black rounded-xl shadow-lg p-6">
-      <h2 className="text-lg font-semibold mb-4">Join Our Newsletter</h2>
-      <NewsletterForm onSubscribe={handleSubscribe} />
-    </div>
-  );
-}
+/* ========================= */
 
 const NewsletterForm = memo(function NewsletterForm({ onSubscribe }) {
   console.log("NewsletterForm Rendered");
+
   const [email, setEmail] = useState("");
+
   return (
-    <div className="space-y-4">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubscribe(email);
+      }}
+      className="space-y-4"
+    >
       <input
         type="email"
         placeholder="Enter your email"
@@ -337,55 +389,69 @@ const NewsletterForm = memo(function NewsletterForm({ onSubscribe }) {
         className="w-full px-4 py-2 border rounded-lg"
       />
       <button
-        onClick={() => onSubscribe(email)}
+        type="submit"
         className="w-full py-2 bg-purple-500 text-white rounded-lg"
-      >Subscribe</button>
-    </div>
+      >
+        Subscribe
+      </button>
+    </form>
   );
 });`,
   },
   {
     id: "usecontext",
     label: "useContext",
-    code: `const { createContext, useState, useContext, useCallback, memo } = React;
+    code: `import { createContext, useState, useContext } from "react";
 
 const ThemeContext = createContext("light");
 
-export default function App() {
+export default function MarketingPage({campaignId="summer2026", source="Insagram"}) {
   const [theme, setTheme] = useState("light");
-  const toggleTheme = () => setTheme((prev) => (prev === "light" ? "dark" : "light"));
+
+  const toggleTheme = () =>
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+
+  function handleSubscribe(email) {
+    console.log("Subscribed: ", campaignId, source, email);
+  }
 
   return (
     <ThemeContext.Provider value={theme}>
-      <div className={\`min-h-screen flex items-center justify-center transition-all \${theme === "light" ? "bg-gray-100" : "bg-gray-900"}\`}>
-        <div className={\`w-full max-w-md p-6 rounded-2xl shadow-lg transition-all \${theme === "light" ? "bg-white text-black" : "bg-gray-800 text-white"}\`}>
+      <div className={\`min-h-screen flex items-center justify-center transition-all
+        \${theme === "light" ? "bg-gray-100" : "bg-gray-900"}\`}>
+        {/* Compact Card */}
+        <div
+          className={\`w-full max-w-md p-6 rounded-2xl shadow-lg transition-all
+            \${theme === "light" ? "bg-white text-black" : "bg-gray-800 text-white"}\`}
+        >
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-xl font-bold">My App</h1>
-            <button onClick={toggleTheme} className="px-3 py-1 bg-indigo-500 text-white rounded-lg text-sm">
+            <button
+              onClick={toggleTheme}
+              className="px-3 py-1 bg-indigo-500 text-white rounded-lg text-sm"
+            >
               Toggle Theme
             </button>
           </div>
-          <NewsletterForm />
+
+          <NewsletterForm
+          handleSubscribe={handleSubscribe}/>
         </div>
       </div>
     </ThemeContext.Provider>
   );
 }
 
-const NewsletterForm = memo(function NewsletterForm() {
+function NewsletterForm({handleSubscribe}) {
   const theme = useContext(ThemeContext);
   const [email, setEmail] = useState("");
 
-  const handleSubscribe = useCallback(() => {
-    console.log("Subscribed:", email);
-  }, [email]);
+  // Input styling changes with theme
+  const inputClasses = \`w-full px-3 py-2 mb-2 rounded-lg border focus:outline-none
+    \${theme === "light" ? "bg-gray-50 text-black border-gray-300" : "bg-gray-700 text-white border-gray-600"}\`;
 
-  const inputClasses = \`w-full px-3 py-2 mb-2 rounded-lg border focus:outline-none \${
-    theme === "light" ? "bg-gray-50 text-black border-gray-300" : "bg-gray-700 text-white border-gray-600"
-  }\`;
-  const cardClasses = \`p-4 rounded-xl transition-all \${
-    theme === "light" ? "bg-gray-50 text-black" : "bg-gray-700 text-white"
-  }\`;
+  const cardClasses = \`p-4 rounded-xl transition-all
+    \${theme === "light" ? "bg-gray-50 text-black" : "bg-gray-700 text-white"}\`;
 
   return (
     <div className={cardClasses}>
@@ -397,22 +463,27 @@ const NewsletterForm = memo(function NewsletterForm() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
-      <button onClick={handleSubscribe} className="w-full py-2 bg-purple-500 text-white rounded-lg">
+      <button
+        onClick={() => handleSubscribe(email)}
+        className="w-full py-2 bg-purple-500 text-white rounded-lg"
+      >
         Subscribe
       </button>
       <p className="mt-2 text-xs opacity-70">Current theme: {theme}</p>
     </div>
   );
-});`,
+}`,
   },
   {
     id: "fetching",
     label: "Data Fetching",
-    code: `export default function RandomPainting() {
-  const [painting, setPainting] = React.useState({ title: "", artist: "", image: "" });
-  const [loading, setLoading] = React.useState(true);
+    code: `import React, { useState, useEffect } from "react";
 
-  const fetchPainting = async () => {
+export default function RandomArtwork() {
+  const [artwork, setArtwork] = useState({ title: "", artist: "", image: "" });
+  const [loading, setLoading] = useState(true);
+
+  const fetchArtwork = async () => {
     setLoading(true);
     try {
       const res = await fetch(
@@ -422,46 +493,110 @@ const NewsletterForm = memo(function NewsletterForm() {
       );
       const data = await res.json();
       if (data.data && data.data.length > 0) {
-        const artwork = data.data[0];
-        const imageUrl = artwork.image_id
-          ? \`https://www.artic.edu/iiif/2/\${artwork.image_id}/full/843,/0/default.jpg\`
+        const item = data.data[0];
+        const imageUrl = item.image_id
+          ? \`https://www.artic.edu/iiif/2/\${item.image_id}/full/843,/0/default.jpg\`
           : null;
-        setPainting({
-          title: artwork.title || "Unknown",
-          artist: artwork.artist_display || "Unknown",
+        setArtwork({
+          title: item.title || "Unknown",
+          artist: item.artist_display || "Unknown",
           image: imageUrl,
         });
-        console.log("Fetched:", artwork.title);
+        console.log("Fetched:", item.title);
       }
     } catch (err) {
       console.error(err.message);
-      setPainting({ title: "Failed to fetch", artist: "", image: null });
+      setArtwork({ title: "Failed to fetch", artist: "", image: null });
     } finally {
       setLoading(false);
     }
   };
 
-  React.useEffect(() => { fetchPainting(); }, []);
+  useEffect(() => { fetchArtwork(); }, []);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <h1 className="text-2xl font-bold mb-4">Random Painting</h1>
+      <h1 className="text-2xl font-bold mb-4">Random Artwork</h1>
       <div className="w-full max-w-sm p-4 bg-white rounded-xl shadow-md flex flex-col items-center">
         {loading ? (
           <p className="py-8 text-gray-400">Loading...</p>
         ) : (
           <>
-            {painting.image && (
-              <img src={painting.image} alt={painting.title} className="rounded-lg mb-4 w-full object-cover" />
+            {artwork.image && (
+              <img src={artwork.image} alt={artwork.title} className="rounded-lg mb-4 w-full object-cover" />
             )}
-            <h2 className="text-lg font-semibold text-center">{painting.title}</h2>
-            <p className="text-sm opacity-70 mb-4 text-center">{painting.artist}</p>
+            <h2 className="text-lg font-semibold text-center">{artwork.title}</h2>
+            <p className="text-sm opacity-70 mb-4 text-center">{artwork.artist}</p>
           </>
         )}
         <button
-          onClick={fetchPainting}
+          onClick={fetchArtwork}
           className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
-        >Fetch New Painting</button>
+        >Fetch New Artwork</button>
+      </div>
+    </div>
+  );
+}`,
+  },
+  {
+    id: "useref",
+    label: "useRef",
+    code: `import React, { useRef, useState } from "react";
+
+export default function FocusInputExample() {
+  const inputRef = useRef(null);
+  const [popup, setPopup] = useState(null);
+
+  const handleFocus = () => {
+    inputRef.current.focus();
+  };
+
+  const showValue = () => {
+    const val = inputRef.current.value;
+    setPopup(val === "" ? "(empty)" : val);
+    setTimeout(() => setPopup(null), 2500);
+  };
+
+  const selectInput = () => {
+    inputRef.current.select();
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <div className="bg-white rounded-2xl shadow-md p-8 w-full max-w-sm flex flex-col gap-4" style={{ position: "relative" }}>
+        <h2 className="text-xl font-semibold text-slate-800">useRef Demo</h2>
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Type something..."
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        />
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={handleFocus}
+            className="px-4 py-2 bg-indigo-500 text-white text-sm rounded-lg hover:bg-indigo-600 transition"
+          >Focus Input</button>
+          <button
+            onClick={showValue}
+            className="px-4 py-2 bg-slate-700 text-white text-sm rounded-lg hover:bg-slate-800 transition"
+          >Show Value</button>
+          <button
+            onClick={selectInput}
+            className="px-4 py-2 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600 transition"
+          >Select Input</button>
+        </div>
+        {popup !== null && (
+          <div style={{
+            position:"absolute", top:16, right:16,
+            background:"#1e293b", color:"#f1f5f9",
+            padding:"8px 14px", borderRadius:8,
+            fontSize:13, fontFamily:"monospace",
+            boxShadow:"0 4px 12px rgba(0,0,0,0.2)",
+            animation:"fadeIn 0.15s ease",
+          }}>
+            Value: <strong>{popup}</strong>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -592,12 +727,21 @@ function HighlightedCode({ code, dark }) {
 // ─── iframe srcdoc builder ───────────────────────────────────────────────────
 
 function buildSrcDoc(code) {
+  const exportDefaultMatch = code.match(/export\s+default\s+function\s+([A-Z]\w*)/);
+  const exportDefaultConst = code.match(/export\s+default\s+([A-Z]\w*)/);
+
   const sanitized = code
+    .replace(/^import\s+.*$/gm, "")
     .replace(/export\s+default\s+/g, "")
     .replace(/export\s+/g, "");
 
-  const matches = [...sanitized.matchAll(/^function\s+([A-Z]\w*)/gm)];
-  const rootComponent = matches.length > 0 ? matches[matches.length - 1][1] : null;
+  const reactGlobals = "const { useState, useEffect, useReducer, useMemo, useCallback, useContext, useRef, useLayoutEffect, useId, createContext, memo, forwardRef, Fragment } = React;";
+
+  const rootComponent = exportDefaultMatch
+    ? exportDefaultMatch[1]
+    : exportDefaultConst
+      ? exportDefaultConst[1]
+      : (() => { const m = [...sanitized.matchAll(/^function\s+([A-Z]\w*)/gm)]; return m.length > 0 ? m[m.length - 1][1] : null; })();
 
   return `<!DOCTYPE html>
 <html>
@@ -621,6 +765,7 @@ function buildSrcDoc(code) {
 </script>
 <script type="text/babel" data-presets="react">
   try {
+    ${reactGlobals}
     ${sanitized}
     ${rootComponent
       ? `ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(${rootComponent}));`
@@ -650,7 +795,6 @@ const DARK = {
   error:      "#f85149",
   lineNum:    "#484f58",
   green:      "#3fb950",
-  // active states — dark mode (original deep blues/greens)
   btnActiveBg:        "#1f3a5f",
   btnActiveBorder:    "#58a6ff",
   btnActiveColor:     "#58a6ff",
@@ -673,7 +817,6 @@ const LIGHT = {
   error:      "#d1242f",
   lineNum:    "#8c959f",
   green:      "#1a7f37",
-  // active states — light mode (soft pastels so text stays readable)
   btnActiveBg:        "#dbeafe",
   btnActiveBorder:    "#93c5fd",
   btnActiveColor:     "#1d4ed8",
@@ -694,6 +837,7 @@ export default function App() {
   const [copied, setCopied]         = useState(false);
   const [editMode, setEditMode]     = useState(false);
   const [dark, setDark]             = useState(true);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
   const C = dark ? DARK : LIGHT;
 
   const textareaRef  = useRef(null);
@@ -764,7 +908,6 @@ export default function App() {
         @keyframes fadeIn { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:none; } }
         .log-in { animation: fadeIn 0.12s ease; }
         .icon-btn:hover { background: ${C.tag} !important; }
-        .tooltip-anchor:hover .tooltip-box { opacity: 1 !important; }
       `}</style>
 
       <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Geist Mono',monospace", background:C.bg, color:C.text }}>
@@ -794,25 +937,41 @@ export default function App() {
 
           <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
             <span style={{ fontSize:10, color:C.muted }}>{lineCount} lines</span>
-            <span style={{ position:"relative", display:"inline-block" }} className="tooltip-anchor">
-              <span style={{ fontSize:10, color:C.muted, cursor:"help", borderBottom:`1px dashed ${C.muted}`, lineHeight:"14px" }}>
-                simplified env ⓘ
+            <span style={{ position:"relative", display:"inline-block" }}>
+              <span
+                onMouseEnter={() => setTooltipOpen(true)}
+                onMouseLeave={() => setTooltipOpen(false)}
+                style={{
+                  fontSize:10, color:C.muted, cursor:"help",
+                  display:"flex", alignItems:"center", gap:4, lineHeight:"14px",
+                }}
+              >
+                <span style={{
+                  width:14, height:14, borderRadius:"50%",
+                  border:`1px solid ${C.muted}`,
+                  display:"inline-flex", alignItems:"center", justifyContent:"center",
+                  fontSize:9, fontWeight:600, flexShrink:0,
+                }}>i</span>
+                demo env
               </span>
-              <span className="tooltip-box" style={{
-                position:"absolute", bottom:"calc(100% + 8px)", right:0,
-                background: dark ? "#1c2128" : "#ffffff",
-                border: `1px solid ${C.border}`,
-                borderRadius:7, padding:"8px 11px",
-                fontSize:11, lineHeight:"17px",
-                color: C.muted,
-                width:240, whiteSpace:"normal",
-                boxShadow: dark ? "0 4px 16px rgba(0,0,0,0.5)" : "0 4px 16px rgba(0,0,0,0.12)",
-                pointerEvents:"none",
-                opacity:0, transition:"opacity 0.15s",
-                zIndex:99,
-              }}>
-                This is a <span style={{ color:C.text }}>simplified learning environment</span> — no bundler, no npm, no imports. It runs React directly in the browser via CDN Babel. Real React apps use a build tool like Vite or Next.js.
-              </span>
+              {tooltipOpen && (
+                <span style={{
+                  position:"fixed",
+                  background: dark ? "#1c2128" : "#ffffff",
+                  border: `1px solid ${C.border}`,
+                  borderRadius:8, padding:"10px 13px",
+                  fontSize:11, lineHeight:"18px",
+                  color: C.muted,
+                  width:260, whiteSpace:"normal",
+                  boxShadow: dark ? "0 8px 24px rgba(0,0,0,0.6)" : "0 8px 24px rgba(0,0,0,0.1)",
+                  pointerEvents:"none",
+                  zIndex:999,
+                  transform:"translateX(-80%) translateY(24px)",
+                }}>
+                  <span style={{ color:C.text, fontWeight:600, display:"block", marginBottom:4 }}>For demonstration only</span>
+                  This environment is designed purely for learning and exploration. It runs React in the browser without a bundler, build step, or package manager — which is not how production React apps work. For real projects, use a proper setup like <span style={{ color:C.accent }}>Vite</span> or <span style={{ color:C.accent }}>Next.js</span>.
+                </span>
+              )}
             </span>
             <button onClick={() => setDark(d => !d)} className="icon-btn" style={{
               padding:"4px 10px", fontSize:11,
@@ -845,7 +1004,6 @@ export default function App() {
             }}>
               <span style={{ color:C.muted }}>Code</span>
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                {/* Edit toggle — uses theme-aware active colors */}
                 <button className="edit-toggle" onClick={() => setEditMode(m => !m)} style={{
                   padding:"3px 9px", fontSize:10, borderRadius:5,
                   border:`1px solid ${editMode ? C.btnActiveBorder : C.border}`,
@@ -857,7 +1015,6 @@ export default function App() {
                   <span style={{ fontSize:9 }}>✎</span>
                   {editMode ? "editing" : "edit"}
                 </button>
-                {/* Copy button — uses theme-aware active colors */}
                 <button onClick={handleCopy} className="icon-btn" style={{
                   padding:"3px 9px", fontSize:10, borderRadius:5,
                   border:`1px solid ${copied ? C.copiedActiveBorder : C.border}`,
@@ -951,7 +1108,7 @@ export default function App() {
               </div>
               <iframe
                 srcDoc={srcDoc}
-                sandbox="allow-scripts allow-same-origin allow-forms"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
                 style={{ flex:1, border:"none", background:"#fff" }}
                 title="preview"
               />
